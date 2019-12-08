@@ -5,17 +5,17 @@
     <title>Wasm Ex.</title>
   </head>
   <body>
-    <script>
-      // mdn: https://developer.mozilla.org/en-US/docs/WebAssembly/Using_the_JavaScript_API 
-      // var importObject = {imports: {imported_func: arg => console.log(arg)}}; 
-      // WebAssembly.instantiateStreaming( 
-      //     fetch('simple.wasm'), importObject).then( 
-      //         obj => obj.instance.exports.exported_func()); 
-      // fetch('/pkg/simple.wasm').then( 
-      //     response => response.arrayBuffer()).then( 
-      //         bytes => WebAssembly.instantiate(bytes, importObject)).then( 
-      //             results => {results.instance.exports.exported_func();}); 
-    </script>
+    <!-- <script type="text/javascript"> -->
+    <!--   // mdn: https://developer.mozilla.org/en-US/docs/WebAssembly/Using_the_JavaScript_API  -->
+    <!--   var importObject = {imports: {imported_func: arg => console.log(arg)}};  -->
+    <!--   // WebAssembly.instantiateStreaming(  -->
+    <!--   //     fetch('simple.wasm'), importObject).then(  -->
+    <!--   //         obj => obj.instance.exports.exported_func());  -->
+    <!--   fetch('/pkg/wasm_experiment_bg.wasm').then(  -->
+    <!--       response => response.arrayBuffer()).then(  -->
+    <!--           bytes => WebAssembly.instantiate(bytes, importObject)).then(  -->
+    <!--               results => {results.instance.exports.exported_func();});  -->
+    <!-- </script> -->
 
     <!-- <script type="module"> -->
     <!--   // // wasm-bindgen: https://rustwasm.github.io/docs/wasm-bindgen/examples/without-a-bundler.html -->
@@ -35,8 +35,8 @@
     <div id="app"></div>
     <script type="module">
       // https://rustwasm.github.io/docs/wasm-bindgen/examples/without-a-bundler.html
-      import init from '/sandbox/seed-listing/pkg/wasm_experiment.js';
-      init('/pkg/wasm_experiment_bg.wasm');
+      import init from './pkg/wasm_experiment.js';
+      init('./pkg/wasm_experiment_bg.wasm');
     </script>
 
   </body>
