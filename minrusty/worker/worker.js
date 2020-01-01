@@ -7,8 +7,10 @@ addEventListener('fetch', event => {
  * @param {Request} request
  */
 async function handleRequest(request) {
-    const { greet } = wasm_bindgen;
-    await wasm_bindgen(wasm)
-    const greeting = greet()
-    return new Response(greeting, {status: 200})
+  const { parse } = wasm_bindgen
+  await wasm_bindgen(wasm)
+  const output = parse()
+  let res = new Response(output, { status: 200 })
+  res.headers.set('Content-type', 'text/html')
+  return res
 }
