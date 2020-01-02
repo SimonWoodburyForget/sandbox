@@ -88,55 +88,52 @@ static mut solar_Bodies: [body; BODIES_COUNT] = [
     },
 ];
 
+// Figure out how many total different interactions there are between each
+// body and every other body. Some of the calculations for these
+// interactions will be calculated two at a time by using x86 SSE
+// instructions and because of that it will also be useful to have a
+// ROUNDED_INTERACTIONS_COUNT that is equal to the next highest even number
+// which is equal to or greater than INTERACTIONS_COUNT.
+const INTERACTIONS_COUNT: usize = (BODIES_COUNT * (BODIES_COUNT - 1) / 2);
+const ROUNDED_INTERACTIONS_COUNT: usize = (INTERACTIONS_COUNT + INTERACTIONS_COUNT % 2);
+
+// It's useful to have two arrays to keep track of the position_Deltas
+// and magnitudes of force between the bodies for each interaction. For the
+// position_Deltas array, instead of using a one dimensional array of
+// structures that each contain the X, Y, and Z components for a position
+// delta, a two dimensional array is used instead which consists of three
+// arrays that each contain all of the X, Y, and Z components for all of the
+// position_Deltas. This allows for more efficient loading of this data into
+// SSE registers. Both of these arrays are also set to contain
+// ROUNDED_INTERACTIONS_COUNT elements to simplify one of the following
+// loops and to also keep the second and third arrays in position_Deltas
+// aligned properly.
+#[derive(Copy, Clone)]
+#[repr(C)]
+union Interactions {
+    scalars: [f64; ROUNDED_INTERACTIONS_COUNT],
+    vectors: [__m128d; ROUNDED_INTERACTIONS_COUNT / 2],
+}
+
+impl Interactions {
+    pub fn as_scalars(&mut self) -> &mut [f64; ROUNDED_INTERACTIONS_COUNT] {
+        unsafe { &mut self.scalars }
+    }
+
+    pub fn as_vectors(&mut self) -> &mut [__m128d; ROUNDED_INTERACTIONS_COUNT / 2] {
+        unsafe { &mut self.vectors }
+    }
+}
+
 // Advance all the bodies in the system by one timestep. Calculate the
 // interactions between all the bodies, update each body's velocity based on
 // those interactions, and update each body's position by the distance it
 // travels in a timestep at it's updated velocity.
-unsafe fn advance(bodies: &mut [body; BODIES_COUNT]) {
-    // Figure out how many total different interactions there are between each
-    // body and every other body. Some of the calculations for these
-    // interactions will be calculated two at a time by using x86 SSE
-    // instructions and because of that it will also be useful to have a
-    // ROUNDED_INTERACTIONS_COUNT that is equal to the next highest even number
-    // which is equal to or greater than INTERACTIONS_COUNT.
-    const INTERACTIONS_COUNT: usize = (BODIES_COUNT * (BODIES_COUNT - 1) / 2);
-    const ROUNDED_INTERACTIONS_COUNT: usize = (INTERACTIONS_COUNT + INTERACTIONS_COUNT % 2);
-
-    // It's useful to have two arrays to keep track of the position_Deltas
-    // and magnitudes of force between the bodies for each interaction. For the
-    // position_Deltas array, instead of using a one dimensional array of
-    // structures that each contain the X, Y, and Z components for a position
-    // delta, a two dimensional array is used instead which consists of three
-    // arrays that each contain all of the X, Y, and Z components for all of the
-    // position_Deltas. This allows for more efficient loading of this data into
-    // SSE registers. Both of these arrays are also set to contain
-    // ROUNDED_INTERACTIONS_COUNT elements to simplify one of the following
-    // loops and to also keep the second and third arrays in position_Deltas
-    // aligned properly.
-    #[derive(Copy, Clone)]
-    #[repr(C)]
-    union Interactions {
-        scalars: [f64; ROUNDED_INTERACTIONS_COUNT],
-        vectors: [__m128d; ROUNDED_INTERACTIONS_COUNT / 2],
-    }
-
-    impl Interactions {
-        pub fn as_scalars(&mut self) -> &mut [f64; ROUNDED_INTERACTIONS_COUNT] {
-            unsafe { &mut self.scalars }
-        }
-
-        pub fn as_vectors(&mut self) -> &mut [__m128d; ROUNDED_INTERACTIONS_COUNT / 2] {
-            unsafe { &mut self.vectors }
-        }
-    }
-
-    static mut position_Deltas: [Interactions; 3] = [Interactions {
-        scalars: [0.; ROUNDED_INTERACTIONS_COUNT],
-    }; 3];
-    static mut magnitudes: Interactions = Interactions {
-        scalars: [0.; ROUNDED_INTERACTIONS_COUNT],
-    };
-
+unsafe fn advance(
+    bodies: &mut [body; BODIES_COUNT],
+    position_Deltas: &mut [Interactions; 3],
+    magnitudes: &mut Interactions,
+) {
     // Calculate the position_Deltas between the bodies for each interaction.
     {
         let mut k = 0;
@@ -278,12 +275,19 @@ fn output_Energy(bodies: &mut [body; BODIES_COUNT]) {
 }
 
 fn main() {
+    let mut position_Deltas: [Interactions; 3] = [Interactions {
+        scalars: [0.; ROUNDED_INTERACTIONS_COUNT],
+    }; 3];
+    let mut magnitudes: Interactions = Interactions {
+        scalars: [0.; ROUNDED_INTERACTIONS_COUNT],
+    };
+
     unsafe {
         offset_Momentum(&mut solar_Bodies);
         output_Energy(&mut solar_Bodies);
         let c = std::env::args().nth(1).unwrap().parse().unwrap();
         for _ in 0..c {
-            advance(&mut solar_Bodies)
+            advance(&mut solar_Bodies, &mut position_Deltas, &mut magnitudes)
         }
         output_Energy(&mut solar_Bodies);
     }
