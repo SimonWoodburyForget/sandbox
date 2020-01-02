@@ -23,7 +23,7 @@ const SOLAR_MASS: f64 = (4. * PI * PI);
 const DAYS_PER_YEAR: f64 = 365.24;
 const BODIES_COUNT: usize = 5;
 
-static mut solar_Bodies: [body; BODIES_COUNT] = [
+const STARTING_STATE: [body; BODIES_COUNT] = [
     body {
         // Sun
         mass: SOLAR_MASS,
@@ -282,6 +282,8 @@ fn output_Energy(bodies: &mut [body; BODIES_COUNT]) {
 }
 
 fn main() {
+    let mut solar_Bodies = STARTING_STATE;
+
     let mut position_Deltas: [Interactions; 3] = [Interactions {
         scalars: [0.; ROUNDED_INTERACTIONS_COUNT],
     }; 3];
@@ -289,13 +291,11 @@ fn main() {
         scalars: [0.; ROUNDED_INTERACTIONS_COUNT],
     };
 
-    unsafe {
-        offset_Momentum(&mut solar_Bodies);
-        output_Energy(&mut solar_Bodies);
-        let c = std::env::args().nth(1).unwrap().parse().unwrap();
-        for _ in 0..c {
-            advance(&mut solar_Bodies, &mut position_Deltas, &mut magnitudes)
-        }
-        output_Energy(&mut solar_Bodies);
+    offset_Momentum(&mut solar_Bodies);
+    output_Energy(&mut solar_Bodies);
+    let c = std::env::args().nth(1).unwrap().parse().unwrap();
+    for _ in 0..c {
+        advance(&mut solar_Bodies, &mut position_Deltas, &mut magnitudes)
     }
+    output_Energy(&mut solar_Bodies);
 }
