@@ -114,11 +114,28 @@ unsafe fn advance(bodies: &mut [body; BODIES_COUNT]) {
     // loops and to also keep the second and third arrays in position_Deltas
     // aligned properly.
     #[derive(Copy, Clone)]
-    #[repr(align(16))]
-    struct Align16([f64; ROUNDED_INTERACTIONS_COUNT]);
+    #[repr(C)]
+    union Interactions {
+        scalars: [f64; ROUNDED_INTERACTIONS_COUNT],
+        vectors: [__m128d; ROUNDED_INTERACTIONS_COUNT / 2],
+    }
 
-    static mut position_Deltas: [Align16; 3] = [Align16([0.; ROUNDED_INTERACTIONS_COUNT]); 3];
-    static mut magnitudes: Align16 = Align16([0.; ROUNDED_INTERACTIONS_COUNT]);
+    impl Interactions {
+        pub fn as_scalars(&mut self) -> &mut [f64; ROUNDED_INTERACTIONS_COUNT] {
+            unsafe { &mut self.scalars }
+        }
+
+        pub fn as_vectors(&mut self) -> &mut [__m128d; ROUNDED_INTERACTIONS_COUNT / 2] {
+            unsafe { &mut self.vectors }
+        }
+    }
+
+    static mut position_Deltas: [Interactions; 3] = [Interactions {
+        scalars: [0.; ROUNDED_INTERACTIONS_COUNT],
+    }; 3];
+    static mut magnitudes: Interactions = Interactions {
+        scalars: [0.; ROUNDED_INTERACTIONS_COUNT],
+    };
 
     // Calculate the position_Deltas between the bodies for each interaction.
     {
@@ -126,7 +143,8 @@ unsafe fn advance(bodies: &mut [body; BODIES_COUNT]) {
         for i in 0..BODIES_COUNT - 1 {
             for j in i + 1..BODIES_COUNT {
                 for m in 0..3 {
-                    position_Deltas[m].0[k] = bodies[i].position[m] - bodies[j].position[m];
+                    position_Deltas[m].as_scalars()[k] =
+                        bodies[i].position[m] - bodies[j].position[m];
                 }
                 k += 1;
             }
@@ -140,7 +158,7 @@ unsafe fn advance(bodies: &mut [body; BODIES_COUNT]) {
         // Load position_Deltas of two bodies into position_Delta.
         let mut position_Delta = [_mm_setzero_pd(); 3];
         for m in 0..3 {
-            position_Delta[m] = *(&position_Deltas[m].0 as *const f64 as *const __m128d).add(i);
+            position_Delta[m] = position_Deltas[m].as_vectors()[i];
         }
 
         let distance_Squared: __m128d = _mm_add_pd(
@@ -184,12 +202,10 @@ unsafe fn advance(bodies: &mut [body; BODIES_COUNT]) {
         // distance_Squared which was already calculated earlier. Additionally
         // this method is probably a little more accurate due to less rounding
         // as well.
-        (magnitudes.0.as_mut_ptr() as *mut __m128d)
-            .add(i)
-            .write(_mm_mul_pd(
-                _mm_div_pd(_mm_set1_pd(0.01), distance_Squared),
-                distance_Reciprocal,
-            ));
+        magnitudes.as_vectors()[i] = _mm_mul_pd(
+            _mm_div_pd(_mm_set1_pd(0.01), distance_Squared),
+            distance_Reciprocal,
+        );
     }
 
     // Use the calculated magnitudes of force to update the velocities for all
@@ -200,11 +216,11 @@ unsafe fn advance(bodies: &mut [body; BODIES_COUNT]) {
             for j in i + 1..BODIES_COUNT {
                 // Precompute the products of the mass and magnitude since it can be
                 // reused a couple times.
-                let i_mass_magnitude = bodies[i].mass * magnitudes.0[k];
-                let j_mass_magnitude = bodies[j].mass * magnitudes.0[k];
+                let i_mass_magnitude = bodies[i].mass * magnitudes.as_scalars()[k];
+                let j_mass_magnitude = bodies[j].mass * magnitudes.as_scalars()[k];
                 for m in 0..3 {
-                    bodies[i].velocity[m] -= position_Deltas[m].0[k] * j_mass_magnitude;
-                    bodies[j].velocity[m] += position_Deltas[m].0[k] * i_mass_magnitude;
+                    bodies[i].velocity[m] -= position_Deltas[m].as_scalars()[k] * j_mass_magnitude;
+                    bodies[j].velocity[m] += position_Deltas[m].as_scalars()[k] * i_mass_magnitude;
                 }
                 k += 1;
             }
