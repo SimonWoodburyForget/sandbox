@@ -12,7 +12,6 @@
 
 use std::arch::x86_64::*;
 use std::f64::consts::PI;
-use std::mem;
 
 struct body {
     position: [f64; 3],
@@ -139,13 +138,10 @@ unsafe fn advance(bodies: &mut [body; BODIES_COUNT]) {
     // ROUNDED_INTERACTIONS_COUNT/2 iterations are done.
     for i in 0..ROUNDED_INTERACTIONS_COUNT / 2 {
         // Load position_Deltas of two bodies into position_Delta.
-        let mut position_Delta = [mem::MaybeUninit::<__m128d>::uninit(); 3];
+        let mut position_Delta = [_mm_setzero_pd(); 3];
         for m in 0..3 {
-            position_Delta[m]
-                .as_mut_ptr()
-                .write(*(&position_Deltas[m].0 as *const f64 as *const __m128d).add(i));
+            position_Delta[m] = *(&position_Deltas[m].0 as *const f64 as *const __m128d).add(i);
         }
-        let position_Delta: [__m128d; 3] = mem::transmute(position_Delta);
 
         let distance_Squared: __m128d = _mm_add_pd(
             _mm_add_pd(
@@ -235,7 +231,7 @@ fn offset_Momentum(bodies: &mut [body; BODIES_COUNT]) {
 }
 
 // Output the total energy of the system.
-unsafe fn output_Energy(bodies: &mut [body; BODIES_COUNT]) {
+fn output_Energy(bodies: &mut [body; BODIES_COUNT]) {
     let mut energy = 0.;
     for i in 0..BODIES_COUNT {
         // Add the kinetic energy for each body.
@@ -247,13 +243,10 @@ unsafe fn output_Energy(bodies: &mut [body; BODIES_COUNT]) {
 
         // Add the potential energy between this body and every other body.
         for j in i + 1..BODIES_COUNT {
-            let mut position_Delta = [mem::MaybeUninit::<f64>::uninit(); 3];
+            let mut position_Delta = [0.; 3];
             for m in 0..3 {
-                position_Delta[m]
-                    .as_mut_ptr()
-                    .write(bodies[i].position[m] - bodies[j].position[m]);
+                position_Delta[m] = bodies[i].position[m] - bodies[j].position[m];
             }
-            let position_Delta: [f64; 3] = mem::transmute(position_Delta);
 
             energy -= bodies[i].mass * bodies[j].mass
                 / f64::sqrt(
