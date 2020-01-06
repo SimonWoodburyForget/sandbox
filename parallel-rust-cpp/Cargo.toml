@@ -1,0 +1,16 @@
+[package]
+name = "parallel-rust-cpp"
+version = "0.1.0"
+authors = ["Simon <simonwoodburyforget@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+rayon = "1.3"
+rand = "0.7"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "my_benchmark"
+harness = false
