@@ -7,16 +7,13 @@ fn handle_panic(_: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 
-#[no_mangle]
-pub extern "C" fn the_answer() -> u32 {
-    42
-}
-
 const WIDTH: usize = 600;
 const HEIGHT: usize = 600;
 
+type Buffer = [u32; WIDTH * HEIGHT];
+
 #[no_mangle]
-static mut BUFFER: [u32; WIDTH * HEIGHT] = [0; WIDTH * HEIGHT];
+static mut BUFFER: Buffer = [0; WIDTH * HEIGHT];
 
 #[no_mangle]
 pub unsafe extern "C" fn go() {
@@ -29,7 +26,7 @@ pub unsafe extern "C" fn go() {
 
 static FRAME: AtomicU32 = AtomicU32::new(0);
 
-fn render_frame_safe(buffer: &mut [u32; WIDTH * HEIGHT]) {
+fn render_frame_safe(buffer: &mut Buffer) {
     let f = FRAME.fetch_add(1, Ordering::Relaxed);
 
     for y in 0..HEIGHT {

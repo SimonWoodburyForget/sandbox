@@ -1,6 +1,0 @@
-name = "minrusty"
-type = "rust"
-account_id = "40d7e37b5aea11d76f6e96721170e560"
-workers_dev = true
-route = ""
-zone_id = ""

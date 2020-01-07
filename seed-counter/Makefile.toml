@@ -1,3 +1,0 @@
-[tasks.default]
-dependencies = ["create_wasm"]
-command 
