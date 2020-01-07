@@ -1,6 +1,7 @@
 extern crate rayon;
 use rayon::prelude::*;
 
+/// simple
 #[inline]
 pub fn step_v0a(r: &mut [f32], d: &[f32], n: usize) {
     for i in 0..n {
@@ -17,6 +18,7 @@ pub fn step_v0a(r: &mut [f32], d: &[f32], n: usize) {
     }
 }
 
+/// chuncked
 #[inline]
 pub fn step_v0b(r: &mut [f32], d: &[f32], n: usize) {
     let step_row = |(i, r_row): (usize, &mut [f32])| {
@@ -35,6 +37,7 @@ pub fn step_v0b(r: &mut [f32], d: &[f32], n: usize) {
     r.chunks_mut(n).enumerate().for_each(step_row);
 }
 
+/// parallel chunked
 #[inline]
 pub fn step_v0c(r: &mut [f32], d: &[f32], n: usize) {
     let step_row = |(i, r_row): (usize, &mut [f32])| {
@@ -51,6 +54,31 @@ pub fn step_v0c(r: &mut [f32], d: &[f32], n: usize) {
     };
     r.par_chunks_mut(n).enumerate().for_each(step_row);
     // r.chunks_mut(n).enumerate().for_each(step_row);
+}
+
+/// linear reading
+#[inline]
+pub fn step_v1(r: &mut [f32], d: &[f32], n: usize) {
+    let mut t = std::vec![0.0; n * n];
+    let transpose_column = |(j, t_row): (usize, &mut [f32])| {
+        for (i, x) in t_row.iter_mut().enumerate() {
+            *x = d[n * i + j];
+        }
+    };
+    t.par_chunks_mut(n).enumerate().for_each(transpose_column);
+    let step_row = |(i, r_row): (usize, &mut [f32])| {
+        for (j, res) in r_row.iter_mut().enumerate() {
+            let mut v = std::f32::INFINITY;
+            for k in 0..n {
+                let x = d[n * i + k];
+                let y = t[n * j + k];
+                let z = x + y;
+                v = v.min(z);
+            }
+            *res = v;
+        }
+    };
+    r.par_chunks_mut(n).enumerate().for_each(step_row);
 }
 
 #[inline]
