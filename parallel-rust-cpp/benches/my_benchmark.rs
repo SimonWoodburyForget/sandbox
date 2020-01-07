@@ -1,19 +1,17 @@
 use criterion::*;
-use parallel_rust_cpp::fibonacci;
+use parallel_rust_cpp::*;
+use rand::prelude::*;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("fib 20", |b| b.iter(|| fibonacci(black_box(20))));
-    c.bench_function("fib 25", |b| b.iter(|| fibonacci(black_box(25))));
+    let mut group = c.benchmark_group("step");
+    for size in 1..101 {
+        let n: usize = size * 10;
+        group.throughput(Throughput::Bytes(n as u64));
 
-    c.bench_with_input(BenchmarkId::new("fib input", 10), &10, |b, &s| {
-        b.iter(|| fibonacci(s))
-    });
-
-    let mut group = c.benchmark_group("fib inputs");
-    for size in 2..32 {
-        group.throughput(Throughput::Bytes(size as u64));
-        group.bench_with_input(BenchmarkId::new("fib input", size), &size, |b, &s| {
-            b.iter(|| fibonacci(s))
+        let d: Vec<f32> = (0..1 * n * n).map(|_| rand::random()).collect();
+        let mut r: Vec<f32> = vec![0.0; n * n];
+        group.bench_function(format!("step input {}", size), |b| {
+            b.iter(|| step(&mut r, d.as_slice(), n))
         });
     }
     group.finish();
