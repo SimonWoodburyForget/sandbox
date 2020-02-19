@@ -6,27 +6,57 @@ use std::time::Duration;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("random-access");
-    group.sample_size(10_000);
-    group.measurement_time(Duration::new(30, 0));
+    group.sample_size(1_000);
+    group.measurement_time(Duration::new(3, 0));
 
-    let mut rng = rand::thread_rng();
+    const SIZE: usize = 512 * 512;
 
-    let mut indices = (0..100_000).collect::<Vec<usize>>();
-    indices.shuffle(&mut rng);
+    let (data, indices) = {
+        let mut rng = rand::thread_rng();
 
-    let mut data = (0..100_000).collect::<Vec<u32>>();
-    data.shuffle(&mut rng);
+        let mut indices = (0..SIZE).collect::<Vec<usize>>();
+        indices.shuffle(&mut rng);
+
+        let mut data = (0..SIZE as u32).collect::<Vec<u32>>();
+        data.shuffle(&mut rng);
+
+        (data, indices)
+    };
 
     {
+        let mut vector = vec![0; SIZE];
+        for (e, datum) in data.iter().enumerate() {
+            vector[e] = *datum;
+        }
+
         group.bench_function("vec reads", |b| {
             let mut it = indices.iter().cycle();
-            b.iter(|| data[*it.next().unwrap()])
+            b.iter(|| vector[*it.next().unwrap()])
         });
 
         group.bench_function("vec writes", |b| {
             let mut it = indices.iter().cycle();
             b.iter(|| {
-                data[*it.next().unwrap()] = 2;
+                vector[*it.next().unwrap()] = 2;
+            });
+        });
+    }
+
+    {
+        let mut array = [0; SIZE];
+        for (e, datum) in data.iter().enumerate() {
+            array[e] = *datum;
+        }
+
+        group.bench_function("array reads", |b| {
+            let mut it = indices.iter().cycle();
+            b.iter(|| array[*it.next().unwrap()])
+        });
+
+        group.bench_function("array writes", |b| {
+            let mut it = indices.iter().cycle();
+            b.iter(|| {
+                array[*it.next().unwrap()] = 2;
             });
         });
     }
