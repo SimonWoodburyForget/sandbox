@@ -11,7 +11,7 @@ impl<'a> System<'a> for VisibilitySystem {
         WriteExpect<'a, Map>,
         Entities<'a>,
         WriteStorage<'a, Viewshed>,
-        WriteStorage<'a, Position>,
+        ReadStorage<'a, Position>,
         ReadStorage<'a, Player>,
     );
 
@@ -21,7 +21,6 @@ impl<'a> System<'a> for VisibilitySystem {
         for (ent, viewshed, pos) in (&entities, &mut viewshed, &pos).join() {
             if viewshed.dirty {
                 viewshed.dirty = false;
-                viewshed.visible_tiles.clear();
                 viewshed.visible_tiles =
                     field_of_view(Point::new(pos.x, pos.y), viewshed.range, &*map);
                 viewshed
