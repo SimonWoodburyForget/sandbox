@@ -1,13 +1,13 @@
 use criterion::*;
 use rand::seq::SliceRandom;
-use std::collections::*;
 use std::hint::unreachable_unchecked;
 use std::time::Duration;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("random-access");
+    group.warm_up_time(Duration::new(1, 0));
     group.sample_size(1_000);
-    group.measurement_time(Duration::new(3, 0));
+    group.measurement_time(Duration::new(5, 0));
 
     const SIZE: usize = 512 * 512;
 
@@ -62,6 +62,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     }
 
     {
+        use std::collections::BTreeMap;
         let mut map_data = BTreeMap::new();
         for (e, datum) in data.iter().enumerate() {
             map_data.insert(e, *datum);
@@ -81,6 +82,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     }
 
     {
+        use std::collections::HashMap;
         let mut map_data = HashMap::new();
         for (e, datum) in data.iter().enumerate() {
             map_data.insert(e, *datum);
@@ -92,6 +94,46 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         });
 
         group.bench_function("hashmap writes", |b| {
+            let mut it = indices.iter().cycle();
+            b.iter(|| {
+                map_data.insert(*it.next().unwrap(), 2);
+            })
+        });
+    }
+
+    {
+        use hashbrown::HashMap;
+        let mut map_data = HashMap::new();
+        for (e, datum) in data.iter().enumerate() {
+            map_data.insert(e, *datum);
+        }
+
+        group.bench_function("hashbrown reads", |b| {
+            let mut it = indices.iter().cycle();
+            b.iter(|| map_data[it.next().unwrap()])
+        });
+
+        group.bench_function("hashbrown writes", |b| {
+            let mut it = indices.iter().cycle();
+            b.iter(|| {
+                map_data.insert(*it.next().unwrap(), 2);
+            })
+        });
+    }
+
+    {
+        use hashbrown::HashMap;
+        let mut map_data = HashMap::new();
+        for (e, datum) in data.iter().enumerate() {
+            map_data.insert(e, *datum);
+        }
+
+        group.bench_function("hashbrown reads", |b| {
+            let mut it = indices.iter().cycle();
+            b.iter(|| map_data[it.next().unwrap()])
+        });
+
+        group.bench_function("hashbrown writes", |b| {
             let mut it = indices.iter().cycle();
             b.iter(|| {
                 map_data.insert(*it.next().unwrap(), 2);
