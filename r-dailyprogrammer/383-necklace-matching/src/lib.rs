@@ -47,38 +47,26 @@ pub mod slicer {
     pub fn canonicalize(x: &str) -> String {
         x.char_indices()
             .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
-            .max()
+            .min()
             .unwrap_or([x, ""])
             .concat()
     }
 
     #[inline(always)]
-    pub fn find_the_four(words: Vec<&str>) -> Option<[&str; 4]> {
-        let mut results: HashMap<String, (usize, [&str; 4])> = HashMap::new();
-
+    pub fn find_the_four<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
+        let mut results: HashMap<String, Vec<&str>> = HashMap::new();
         for word in words {
-            let (idx, ref mut result) = results
-                .entry(canonicalize(word))
-                .or_insert(Default::default());
-
-            result[*idx] = word;
-            *idx += 1;
-            if *idx == 4 {
-                // println!("{:?}", result);
-                return Some(*result);
+            let result = results.entry(canonicalize(word)).or_insert(Vec::new());
+            result.push(word);
+            if result.len() == 4 {
+                return Some(result.clone());
             }
         }
-
         None
     }
 
     #[test]
     pub fn test() {
-        assert!(is_necklace("nicole", "icolen"));
-        assert!(is_necklace("ab", "ba"));
-        assert!(!is_necklace("x", "xx"));
-        assert!(!is_necklace("", "x"));
-        assert!(!is_necklace("xx", "x"));
         assert_eq!(is_necklace("nicole", "icolen"), true);
         assert_eq!(is_necklace("nicole", "lenico"), true);
         assert_eq!(is_necklace("nicole", "coneli"), false);
@@ -90,6 +78,11 @@ pub mod slicer {
         assert_eq!(is_necklace("x", "xx"), false);
         assert_eq!(is_necklace("x", ""), false);
         assert_eq!(is_necklace("", ""), true);
+        assert!(is_necklace("nicole", "icolen"));
+        assert!(is_necklace("ab", "ba"));
+        assert!(!is_necklace("x", "xx"));
+        assert!(!is_necklace("", "x"));
+        assert!(!is_necklace("xx", "x"));
     }
 
     #[test]
@@ -97,6 +90,26 @@ pub mod slicer {
         assert_eq!(canonicalize("ab"), canonicalize("ba"));
         assert_eq!(canonicalize("aabaaaaabaab"), canonicalize("aabaabaabaaa"));
         assert_eq!(canonicalize("nicole"), canonicalize("icolen"));
+        assert_eq!(canonicalize("nicole"), canonicalize("icolen"));
+        assert_eq!(canonicalize("nicole"), canonicalize("lenico"));
+        assert_eq!(canonicalize("aabaaaaabaab"), canonicalize("aabaabaabaaa"));
+        assert_eq!(canonicalize("x"), canonicalize("x"));
+        assert_eq!(canonicalize(""), canonicalize(""));
+        assert_ne!(canonicalize("x"), canonicalize("xx"));
+        assert_ne!(canonicalize("x"), canonicalize(""));
+        assert_ne!(canonicalize("abc"), canonicalize("cba"));
+        assert_ne!(canonicalize("xxyyy"), canonicalize("xxxyy"));
+        assert_ne!(canonicalize("xyxxz"), canonicalize("xxyxz"));
+    }
+
+    #[test]
+    pub fn test_solution() {
+        let v: Vec<&str> = include_str!("../inputs/enable1.txt")
+            .trim()
+            .split("\n")
+            .collect();
+        let result = find_the_four(&v);
+        assert!(result.is_some());
     }
 }
 
@@ -176,48 +189,5 @@ pub mod simple {
         );
 
         assert!(result.is_some());
-    }
-}
-
-pub mod manual {
-    pub fn is_necklace(rhs: &str, lhs: &str) -> bool {
-        if rhs.len() != lhs.len() {
-            return false;
-        } else if rhs.is_empty() {
-            return true;
-        }
-        'outer: for (offset, _) in rhs.char_indices() {
-            for (r, l) in rhs[offset..]
-                .chars()
-                .chain(rhs[..offset].chars())
-                .zip(lhs.chars())
-            {
-                if r != l {
-                    continue 'outer;
-                }
-            }
-            return true;
-        }
-        false
-    }
-
-    #[test]
-    pub fn test() {
-        assert!(is_necklace("nicole", "icolen"));
-        assert!(is_necklace("ab", "ba"));
-        assert!(!is_necklace("x", "xx"));
-        assert!(!is_necklace("", "x"));
-        assert!(!is_necklace("xx", "x"));
-        assert_eq!(is_necklace("nicole", "icolen"), true);
-        assert_eq!(is_necklace("nicole", "lenico"), true);
-        assert_eq!(is_necklace("nicole", "coneli"), false);
-        assert_eq!(is_necklace("aabaaaaabaab", "aabaabaabaaa"), true);
-        assert_eq!(is_necklace("abc", "cba"), false);
-        assert_eq!(is_necklace("xxyyy", "xxxyy"), false);
-        assert_eq!(is_necklace("xyxxz", "xxyxz"), false);
-        assert_eq!(is_necklace("x", "x"), true);
-        assert_eq!(is_necklace("x", "xx"), false);
-        assert_eq!(is_necklace("x", ""), false);
-        assert_eq!(is_necklace("", ""), true);
     }
 }

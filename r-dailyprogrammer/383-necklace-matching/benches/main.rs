@@ -40,31 +40,30 @@ pub fn bench(c: &mut Criterion) {
     //     })
     // });
 
+    // {
+    //     let mut group = c.benchmark_group("canon");
+    //     let mut data = words.iter().cycle();
+
+    //     group.warm_up_time(Duration::new(2, 0));
+    //     group.sample_size(3_000);
+    //     group.measurement_time(Duration::new(40, 0));
+
+    //     group.bench_function("faster", |b| {
+    //         b.iter(|| {
+    //             let s = data.next().unwrap();
+    //             slicer::canonicalize(s)
+    //         })
+    //         // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
+    //     });
+
+    //     group.finish();
+    // }
+
     {
-        let mut group = c.benchmark_group("canon");
-        let mut data = words.iter().cycle();
-
-        group.warm_up_time(Duration::new(2, 0));
-        group.sample_size(3_000);
-        group.measurement_time(Duration::new(40, 0));
-
-        group.bench_function("faster", |b| {
-            b.iter(|| {
-                let s = data.next().unwrap();
-                slicer::canonicalize(s)
-            })
-            // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
-        });
-
-        group.finish();
-    }
-
-    {
-        let mut data = words.iter().cycle();
         let mut group = c.benchmark_group("solution");
-        group.warm_up_time(Duration::new(2, 0));
-        group.sample_size(14);
-        group.measurement_time(Duration::new(60, 0));
+        group.warm_up_time(Duration::new(3, 0));
+        group.sample_size(10);
+        group.measurement_time(Duration::new(20, 0));
 
         // group.bench_function("simple", |b| {
         //     b.iter(|| {
@@ -73,9 +72,10 @@ pub fn bench(c: &mut Criterion) {
         //     // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
         // });
 
+        let mut data: Vec<&str> = words.iter().cloned().collect();
         group.bench_function("faster", |b| {
             b.iter(|| {
-                slicer::find_the_four(words.iter().cloned().collect());
+                slicer::find_the_four(&data);
             })
             // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
         });
