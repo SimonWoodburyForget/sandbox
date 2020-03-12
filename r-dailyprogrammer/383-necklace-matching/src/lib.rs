@@ -30,30 +30,9 @@ pub fn analyze(input: &str) {
 }
 
 pub mod slicer {
-    use std::collections::HashMap;
-
     use std::collections::hash_map::DefaultHasher;
+    use std::collections::HashMap;
     use std::hash::{Hash, Hasher};
-
-    #[inline(always)]
-    pub fn is_necklace(a: &str, b: &str) -> bool {
-        let check = |(rotation, _)| {
-            let a = (&a[rotation..], &a[..rotation]);
-            let b = (&b[..a.0.len()], &b[a.0.len()..]);
-            a == b
-        };
-
-        a.len() == b.len() && (a.len() == 0 || a.char_indices().any(check))
-    }
-
-    #[inline(always)]
-    pub fn canonicalize(x: &str) -> String {
-        x.char_indices()
-            .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
-            .max()
-            .unwrap_or([x, ""])
-            .concat()
-    }
 
     #[inline(always)]
     pub fn canonicalize_hash(x: &str) -> u64 {
@@ -78,10 +57,58 @@ pub mod slicer {
     }
 
     #[inline(always)]
+    pub fn canonicalize_string(x: &str) -> String {
+        x.char_indices()
+            .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
+            .max()
+            .unwrap_or([x, ""])
+            .concat()
+    }
+
+    #[inline(always)]
+    pub fn is_necklace(a: &str, b: &str) -> bool {
+        let check = |(rotation, _)| {
+            let a = (&a[rotation..], &a[..rotation]);
+            let b = (&b[..a.0.len()], &b[a.0.len()..]);
+            a == b
+        };
+        a.len() == b.len() && (a.len() == 0 || a.char_indices().any(check))
+    }
+
+    #[derive(Debug)]
+    pub struct Necklace<'a>(&'a str);
+
+    impl Eq for Necklace<'_> {}
+    impl PartialEq for Necklace<'_> {
+        fn eq(&self, other: &Self) -> bool {
+            let (a, b) = (self.0, other.0);
+            let check = |(rotation, _)| {
+                let a = (&a[rotation..], &a[..rotation]);
+                let b = (&b[..a.0.len()], &b[a.0.len()..]);
+                a == b
+            };
+            a.len() == b.len() && (a.len() == 0 || a.char_indices().any(check))
+        }
+    }
+
+    impl Hash for Necklace<'_> {
+        fn hash<H: Hasher>(&self, h: &mut H) {
+            let x = self.0;
+            let [a, b] = x
+                .char_indices()
+                .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
+                .max()
+                .unwrap_or([x, ""]);
+            h.write(a.as_bytes());
+            h.write(b.as_bytes());
+        }
+    }
+
+    #[inline(always)]
     pub fn find_the_four<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
         let mut results = HashMap::with_capacity(words.len());
         for &word in words {
-            let result = results.entry(canonicalize_hash(word)).or_insert(Vec::new());
+            let result = results.entry(Necklace(word)).or_insert(Vec::new());
             result.push(word);
             if result.len() == 4 {
                 return Some(result.clone());
@@ -111,20 +138,20 @@ pub mod slicer {
     }
 
     #[test]
-    pub fn test_canon() {
-        assert_eq!(canonicalize("ab"), canonicalize("ba"));
-        assert_eq!(canonicalize("aabaaaaabaab"), canonicalize("aabaabaabaaa"));
-        assert_eq!(canonicalize("nicole"), canonicalize("icolen"));
-        assert_eq!(canonicalize("nicole"), canonicalize("icolen"));
-        assert_eq!(canonicalize("nicole"), canonicalize("lenico"));
-        assert_eq!(canonicalize("aabaaaaabaab"), canonicalize("aabaabaabaaa"));
-        assert_eq!(canonicalize("x"), canonicalize("x"));
-        assert_eq!(canonicalize(""), canonicalize(""));
-        assert_ne!(canonicalize("x"), canonicalize("xx"));
-        assert_ne!(canonicalize("x"), canonicalize(""));
-        assert_ne!(canonicalize("abc"), canonicalize("cba"));
-        assert_ne!(canonicalize("xxyyy"), canonicalize("xxxyy"));
-        assert_ne!(canonicalize("xyxxz"), canonicalize("xxyxz"));
+    pub fn test_eq() {
+        assert_eq!(Necklace("ab"), Necklace("ba"));
+        assert_eq!(Necklace("aabaaaaabaab"), Necklace("aabaabaabaaa"));
+        assert_eq!(Necklace("nicole"), Necklace("icolen"));
+        assert_eq!(Necklace("nicole"), Necklace("icolen"));
+        assert_eq!(Necklace("nicole"), Necklace("lenico"));
+        assert_eq!(Necklace("aabaaaaabaab"), Necklace("aabaabaabaaa"));
+        assert_eq!(Necklace("x"), Necklace("x"));
+        assert_eq!(Necklace(""), Necklace(""));
+        assert_ne!(Necklace("x"), Necklace("xx"));
+        assert_ne!(Necklace("x"), Necklace(""));
+        assert_ne!(Necklace("abc"), Necklace("cba"));
+        assert_ne!(Necklace("xxyyy"), Necklace("xxxyy"));
+        assert_ne!(Necklace("xyxxz"), Necklace("xxyxz"));
     }
 
     #[test]
