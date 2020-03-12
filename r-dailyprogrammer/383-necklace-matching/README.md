@@ -7,12 +7,11 @@ Simple necklace equality solution, with an average runtime on the
         a.len() == b.len() && [a, a].concat().contains(b)
     }
 
-This is likely not worth optimizing, so I decided to go ahead and try
-to see if it could be optimized at all, and if so by how much.
-
-There's one tiny allocation in `.concat()` which allocates a `String`
-allowing the string to be concatitated; I got rid of that with a
-little string slicing, which got me down to around ~17.5ns.
+This is so fast it's likely not worth optimizing, so I decided to go
+ahead and optimize it. There's one tiny allocation in `.concat()`
+which allocates a `String` which is required for actual string
+concatition. This can be replaced with a little string slicing, which
+gets us down to around ~17.5ns.
 
     fn is_necklace(a: &str, b: &str) -> bool {
         let check = |(rotation, _)| {
@@ -24,3 +23,21 @@ little string slicing, which got me down to around ~17.5ns.
         a.len() == b.len() && (a.len() == 0 || a.char_indices().any(check))
     }
 
+-----------------
+
+Bonus 2 -- implementing the normalization, which simply means rotating
+the string until it reaches a minimum or maximum value of some kind.
+
+Now that it's self evident that we can just slice to rotate, we can
+just do that in a loop and find the minimum. The following
+implementation has a runtime of about 185 ns.
+
+    pub fn canonicalize(x: &str) -> String {
+        x.char_indices()
+            .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
+            .max()
+            .unwrap_or([x, ""])
+            .concat()
+    }
+
+I almost thought I needed a buffer here.

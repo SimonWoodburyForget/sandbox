@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 /// Prints some data related to the input.
-fn analyze(input: &str) {
+pub fn analyze(input: &str) {
     println!("kilobytes {} (bytes {})", input.len() / 1000, input.len());
     let words: Vec<&str> = input.trim().split("\n").collect();
     println!("words {}", words.len());
@@ -11,13 +11,17 @@ fn analyze(input: &str) {
         words.iter().map(|w| w.len()).max().unwrap()
     );
     println!(
+        "avg word len {}",
+        words.iter().map(|w| w.len()).sum::<usize>() / words.len()
+    );
+    println!(
         "min word len {}",
         words.iter().map(|w| w.len()).min().unwrap()
     );
 
     let mut chars: HashMap<char, u32> = HashMap::new();
     for c in input.chars().filter(|&c| c != '\n') {
-        let mut count = chars.entry(c).or_insert(0);
+        let count = chars.entry(c).or_insert(0);
         *count += 1;
     }
     let mut chars = chars.into_iter().collect::<Vec<(char, u32)>>();
@@ -38,6 +42,15 @@ pub mod slicer {
         a.len() == b.len() && (a.len() == 0 || a.char_indices().any(check))
     }
 
+    #[inline(always)]
+    pub fn canonicalize(x: &str) -> String {
+        x.char_indices()
+            .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
+            .max()
+            .unwrap_or([x, ""])
+            .concat()
+    }
+
     #[test]
     pub fn test() {
         assert!(is_necklace("nicole", "icolen"));
@@ -57,16 +70,35 @@ pub mod slicer {
         assert_eq!(is_necklace("x", ""), false);
         assert_eq!(is_necklace("", ""), true);
     }
+
+    #[test]
+    pub fn test_canon() {
+        assert_eq!(canonicalize("ab"), canonicalize("ba"));
+        println!("{}", canonicalize("aabaaaaabaab"));
+        println!("{}", canonicalize("aabaabaabaaa"));
+        //                       aabaaaaabaab
+        assert_eq!(canonicalize("aabaaaaabaab"), canonicalize("aabaabaabaaa"));
+        assert_eq!(canonicalize("nicole"), canonicalize("icolen"));
+    }
 }
 
 pub mod simple {
+
     #[inline(always)]
     pub fn is_necklace(a: &str, b: &str) -> bool {
         a.len() == b.len() && [a, a].concat().contains(b)
     }
 
+    #[inline(always)]
+    pub fn canonicalize(x: &str) -> String {
+        x.char_indices()
+            .map(|(rotation, _)| [&x[rotation..], &x[..rotation]].concat())
+            .min()
+            .unwrap_or(x.to_string())
+    }
+
     #[test]
-    pub fn test() {
+    pub fn test_is_nacklace() {
         assert!(is_necklace("nicole", "icolen"));
         assert!(is_necklace("ab", "ba"));
         assert!(!is_necklace("x", "xx"));
@@ -83,6 +115,16 @@ pub mod simple {
         assert_eq!(is_necklace("x", "xx"), false);
         assert_eq!(is_necklace("x", ""), false);
         assert_eq!(is_necklace("", ""), true);
+    }
+
+    #[test]
+    pub fn test_canon() {
+        assert_eq!(canonicalize("pesto"), "estop");
+        assert_eq!(canonicalize("ab"), canonicalize("ba"));
+        assert_eq!(canonicalize("aabaaaaabaab"), canonicalize("aabaabaabaaa"));
+        assert_eq!(canonicalize("nicole"), canonicalize("icolen"));
+        assert_eq!(canonicalize("xxx"), canonicalize("xxx"));
+        assert_eq!(canonicalize(""), canonicalize(""));
     }
 }
 

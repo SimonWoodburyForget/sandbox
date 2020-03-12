@@ -12,30 +12,44 @@ pub fn bench(c: &mut Criterion) {
     let words: Vec<&str> = enable1.trim().split("\n").collect();
     let mut data = words.windows(2).cycle();
 
-    let mut group = c.benchmark_group("is_necklace");
+    // let mut group = c.benchmark_group("is_necklace");
+    // group.warm_up_time(Duration::new(2, 0));
+    // group.sample_size(3_000);
+    // group.measurement_time(Duration::new(40, 0));
+
+    // let mut rng = rand::thread_rng();
+    // group.bench_function("simple", |b| {
+    //     b.iter(|| {
+    //         let ab = data.next().unwrap();
+    //         simple::is_necklace(ab[0], ab[1])
+    //     })
+    //     // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
+    // });
+    // group.bench_function("manual", |b| {
+    //     b.iter(|| {
+    //         let ab = data.next().unwrap();
+    //         manual::is_necklace(ab[0], ab[1])
+    //     })
+    // });
+    // group.bench_function("slicer", |b| {
+    //     b.iter(|| {
+    //         let ab = data.next().unwrap();
+    //         slicer::is_necklace(ab[0], ab[1])
+    //     })
+    // });
+
+    let mut data = words.iter().cycle();
+    let mut group = c.benchmark_group("canon");
     group.warm_up_time(Duration::new(2, 0));
     group.sample_size(3_000);
     group.measurement_time(Duration::new(40, 0));
 
-    let mut rng = rand::thread_rng();
-    group.bench_function("simple", |b| {
+    group.bench_function("faster", |b| {
         b.iter(|| {
-            let ab = data.next().unwrap();
-            simple::is_necklace(ab[0], ab[1])
+            let s = data.next().unwrap();
+            slicer::canonicalize(s)
         })
         // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
-    });
-    group.bench_function("manual", |b| {
-        b.iter(|| {
-            let ab = data.next().unwrap();
-            manual::is_necklace(ab[0], ab[1])
-        })
-    });
-    group.bench_function("slicer", |b| {
-        b.iter(|| {
-            let ab = data.next().unwrap();
-            slicer::is_necklace(ab[0], ab[1])
-        })
     });
 
     group.finish();
