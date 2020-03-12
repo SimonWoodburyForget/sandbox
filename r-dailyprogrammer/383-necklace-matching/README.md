@@ -78,7 +78,7 @@ solution `find_the_four` all the way down to \~70ms.
         h.finish()
     }
 
-Unfortunetly now we're just blindly ignoring hash collisions here,
+Unfortunately now we're just blindly ignoring hash collisions here,
 luckily `HashMap` takes a type implementing `Eq` which does that for
 us, so we just need to implement a type that defines necklace
 equality and hashing.
