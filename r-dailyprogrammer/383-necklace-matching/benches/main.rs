@@ -48,10 +48,18 @@ pub fn bench(c: &mut Criterion) {
     //     group.sample_size(3_000);
     //     group.measurement_time(Duration::new(40, 0));
 
-    //     group.bench_function("faster", |b| {
+    //     group.bench_function("string", |b| {
     //         b.iter(|| {
     //             let s = data.next().unwrap();
     //             slicer::canonicalize(s)
+    //         })
+    //         // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
+    //     });
+
+    //     group.bench_function("hasher", |b| {
+    //         b.iter(|| {
+    //             let s = data.next().unwrap();
+    //             slicer::canonicalize_hash(s)
     //         })
     //         // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
     //     });

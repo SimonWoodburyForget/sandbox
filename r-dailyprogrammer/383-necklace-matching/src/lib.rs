@@ -32,6 +32,9 @@ pub fn analyze(input: &str) {
 pub mod slicer {
     use std::collections::HashMap;
 
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
     #[inline(always)]
     pub fn is_necklace(a: &str, b: &str) -> bool {
         let check = |(rotation, _)| {
@@ -47,16 +50,38 @@ pub mod slicer {
     pub fn canonicalize(x: &str) -> String {
         x.char_indices()
             .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
-            .min()
+            .max()
             .unwrap_or([x, ""])
             .concat()
     }
 
     #[inline(always)]
+    pub fn canonicalize_hash(x: &str) -> u64 {
+        let [a, b] = x
+            .char_indices()
+            .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
+            .max()
+            .unwrap_or([x, ""]);
+
+        let mut h = DefaultHasher::new();
+        h.write(a.as_bytes());
+        h.write(b.as_bytes());
+        h.finish()
+    }
+
+    #[inline(always)]
+    pub fn canonicalize_slices(x: &str) -> [&str; 2] {
+        x.char_indices()
+            .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
+            .max()
+            .unwrap_or([x, ""])
+    }
+
+    #[inline(always)]
     pub fn find_the_four<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
-        let mut results: HashMap<String, Vec<&str>> = HashMap::new();
-        for word in words {
-            let result = results.entry(canonicalize(word)).or_insert(Vec::new());
+        let mut results = HashMap::with_capacity(words.len());
+        for &word in words {
+            let result = results.entry(canonicalize_hash(word)).or_insert(Vec::new());
             result.push(word);
             if result.len() == 4 {
                 return Some(result.clone());
