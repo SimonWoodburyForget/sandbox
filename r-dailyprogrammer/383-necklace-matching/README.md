@@ -30,14 +30,16 @@ the string until it reaches a minimum or maximum value of some kind.
 
 Now that it's self evident that we can just slice to rotate, we can
 just do that in a loop and find the minimum. The following
-implementation has a runtime of about 185 ns.
+implementation has a runtime of about 155ns.
 
-    pub fn canonicalize(x: &str) -> String {
+    pub fn canonicalize(x: &str) -> [&str; 2] {
         x.char_indices()
             .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
             .max()
             .unwrap_or([x, ""])
-            .concat()
     }
+    
+It's interesting to note that you don't need any heap allocations at
+all here, not even for the returning slices.
 
-I almost thought I needed a buffer here.
+

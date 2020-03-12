@@ -6,10 +6,10 @@ use std::time::Duration;
 
 use necklace_matching::*;
 
-const enable1: &str = include_str!("../inputs/enable1.txt");
+const ENABLE1: &str = include_str!("../inputs/enable1.txt");
 
 pub fn bench(c: &mut Criterion) {
-    let words: Vec<&str> = enable1.trim().split("\n").collect();
+    let words: Vec<&str> = ENABLE1.trim().split("\n").collect();
     let mut data = words.windows(2).cycle();
 
     // let mut group = c.benchmark_group("is_necklace");
@@ -38,21 +38,48 @@ pub fn bench(c: &mut Criterion) {
     //     })
     // });
 
-    let mut data = words.iter().cycle();
-    let mut group = c.benchmark_group("canon");
-    group.warm_up_time(Duration::new(2, 0));
-    group.sample_size(3_000);
-    group.measurement_time(Duration::new(40, 0));
+    // {
+    //     let mut group = c.benchmark_group("canon");
+    //     let mut data = words.iter().cycle();
 
-    group.bench_function("faster", |b| {
-        b.iter(|| {
-            let s = data.next().unwrap();
-            slicer::canonicalize(s)
-        })
-        // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
-    });
+    //     group.warm_up_time(Duration::new(2, 0));
+    //     group.sample_size(3_000);
+    //     group.measurement_time(Duration::new(40, 0));
 
-    group.finish();
+    //     group.bench_function("faster", |b| {
+    //         b.iter(|| {
+    //             let s = data.next().unwrap();
+    //             slicer::canonicalize(s)
+    //         })
+    //         // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
+    //     });
+
+    //     group.finish();
+    // }
+
+    {
+        let mut data = words.iter().cycle();
+        let mut group = c.benchmark_group("solution");
+        group.warm_up_time(Duration::new(2, 0));
+        group.sample_size(14);
+        group.measurement_time(Duration::new(60, 0));
+
+        group.bench_function("simple", |b| {
+            b.iter(|| {
+                simple::find_the_four(words.iter().cloned().collect());
+            })
+            // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
+        });
+
+        group.bench_function("faster", |b| {
+            b.iter(|| {
+                slicer::find_the_four(words.iter().cloned().collect());
+            })
+            // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
+        });
+
+        group.finish();
+    }
 }
 
 pub fn primitive(c: &mut Criterion) {

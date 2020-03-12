@@ -30,6 +30,7 @@ pub fn analyze(input: &str) {
 }
 
 pub mod slicer {
+    use std::collections::HashMap;
 
     #[inline(always)]
     pub fn is_necklace(a: &str, b: &str) -> bool {
@@ -43,12 +44,31 @@ pub mod slicer {
     }
 
     #[inline(always)]
-    pub fn canonicalize(x: &str) -> String {
+    pub fn canonicalize(x: &str) -> [&str; 2] {
         x.char_indices()
             .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
             .max()
             .unwrap_or([x, ""])
-            .concat()
+    }
+
+    #[inline(always)]
+    pub fn find_the_four(words: Vec<&str>) -> Option<[&str; 4]> {
+        let mut results: HashMap<[&str; 2], (usize, [&str; 4])> = HashMap::new();
+
+        for word in words {
+            let (idx, ref mut result) = results
+                .entry(canonicalize(word))
+                .or_insert(Default::default());
+
+            result[*idx] = word;
+            *idx += 1;
+            if *idx == 4 {
+                // println!("{:?}", result);
+                return Some(*result);
+            }
+        }
+
+        None
     }
 
     #[test]
@@ -74,15 +94,13 @@ pub mod slicer {
     #[test]
     pub fn test_canon() {
         assert_eq!(canonicalize("ab"), canonicalize("ba"));
-        println!("{}", canonicalize("aabaaaaabaab"));
-        println!("{}", canonicalize("aabaabaabaaa"));
-        //                       aabaaaaabaab
         assert_eq!(canonicalize("aabaaaaabaab"), canonicalize("aabaabaabaaa"));
         assert_eq!(canonicalize("nicole"), canonicalize("icolen"));
     }
 }
 
 pub mod simple {
+    use std::collections::HashMap;
 
     #[inline(always)]
     pub fn is_necklace(a: &str, b: &str) -> bool {
@@ -95,6 +113,26 @@ pub mod simple {
             .map(|(rotation, _)| [&x[rotation..], &x[..rotation]].concat())
             .min()
             .unwrap_or(x.to_string())
+    }
+
+    #[inline(always)]
+    pub fn find_the_four(words: Vec<&str>) -> Option<[&str; 4]> {
+        let mut results: HashMap<String, (usize, [&str; 4])> = HashMap::new();
+
+        for word in words {
+            let (idx, ref mut result) = results
+                .entry(canonicalize(word))
+                .or_insert(Default::default());
+
+            result[*idx] = word;
+            *idx += 1;
+            if *idx == 4 {
+                // println!("{:?}", result);
+                return Some(*result);
+            }
+        }
+
+        None
     }
 
     #[test]
@@ -125,6 +163,18 @@ pub mod simple {
         assert_eq!(canonicalize("nicole"), canonicalize("icolen"));
         assert_eq!(canonicalize("xxx"), canonicalize("xxx"));
         assert_eq!(canonicalize(""), canonicalize(""));
+    }
+
+    #[test]
+    pub fn test_solution() {
+        let result = find_the_four(
+            include_str!("../inputs/enable1.txt")
+                .trim()
+                .split("\n")
+                .collect(),
+        );
+
+        assert!(result.is_some());
     }
 }
 
