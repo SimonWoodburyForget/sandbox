@@ -85,7 +85,10 @@ equality and hashing.
 
 *Complete Solution*
 
-    pub struct Necklace<'a>(&'a str);
+    use std::collections::HashMap;
+    use std::hash::{Hash, Hasher};
+
+    struct Necklace<'a>(&'a str);
 
     impl Eq for Necklace<'_> {}
     impl PartialEq for Necklace<'_> {
@@ -124,4 +127,13 @@ equality and hashing.
             }
         }
         None
+    }
+
+
+    fn main() {
+        let v: Vec<&str> = include_str!("../inputs/enable1.txt")
+            .trim()
+            .split("\n")
+            .collect();
+        println!("{:?}", slicer::find_the_four(&v));
     }
