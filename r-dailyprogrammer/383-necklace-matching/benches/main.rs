@@ -1,7 +1,9 @@
 use criterion::*;
 use rand::seq::SliceRandom;
 use rand::Rng;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::VecDeque;
+use std::hash::{Hash, Hasher};
 use std::time::Duration;
 
 use necklace_matching::*;
@@ -38,24 +40,24 @@ pub fn bench(c: &mut Criterion) {
     //     })
     // });
 
-    // {
-    //     let mut group = c.benchmark_group("canon");
-    //     let mut data = words.iter().cycle();
+    {
+        let mut group = c.benchmark_group("canon");
+        let mut data = words.iter().cycle();
 
-    //     group.warm_up_time(Duration::new(2, 0));
-    //     group.sample_size(3_000);
-    //     group.measurement_time(Duration::new(40, 0));
+        group.warm_up_time(Duration::new(2, 0));
+        group.sample_size(3_000);
+        group.measurement_time(Duration::new(40, 0));
 
-    //     group.bench_function("faster", |b| {
-    //         b.iter(|| {
-    //             let s = data.next().unwrap();
-    //             slicer::canonicalize(s)
-    //         })
-    //         // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
-    //     });
+        group.bench_function("faster", |b| {
+            b.iter(|| {
+                let s = data.next().unwrap();
+                slicer::canonicalize(s)
+            })
+            // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
+        });
 
-    //     group.finish();
-    // }
+        group.finish();
+    }
 
     {
         let mut data = words.iter().cycle();
@@ -64,12 +66,12 @@ pub fn bench(c: &mut Criterion) {
         group.sample_size(14);
         group.measurement_time(Duration::new(60, 0));
 
-        group.bench_function("simple", |b| {
-            b.iter(|| {
-                simple::find_the_four(words.iter().cloned().collect());
-            })
-            // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
-        });
+        // group.bench_function("simple", |b| {
+        //     b.iter(|| {
+        //         simple::find_the_four(words.iter().cloned().collect());
+        //     })
+        //     // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
+        // });
 
         group.bench_function("faster", |b| {
             b.iter(|| {
@@ -98,6 +100,14 @@ pub fn primitive(c: &mut Criterion) {
     });
     let mut d: VecDeque<char> = "12345678901234567890".chars().collect();
     group.bench_function("rotate/vector-deque", |b| b.iter(|| d.rotate_left(1)));
+
+    let mut hasher = DefaultHasher::new();
+    group.bench_function("hasher/string", |b| {
+        b.iter(|| {
+            "12345678901234567890".hash(&mut hasher);
+            hasher.finish()
+        })
+    });
 
     group.finish();
 }

@@ -44,16 +44,17 @@ pub mod slicer {
     }
 
     #[inline(always)]
-    pub fn canonicalize(x: &str) -> [&str; 2] {
+    pub fn canonicalize(x: &str) -> String {
         x.char_indices()
             .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
             .max()
             .unwrap_or([x, ""])
+            .concat()
     }
 
     #[inline(always)]
     pub fn find_the_four(words: Vec<&str>) -> Option<[&str; 4]> {
-        let mut results: HashMap<[&str; 2], (usize, [&str; 4])> = HashMap::new();
+        let mut results: HashMap<String, (usize, [&str; 4])> = HashMap::new();
 
         for word in words {
             let (idx, ref mut result) = results
