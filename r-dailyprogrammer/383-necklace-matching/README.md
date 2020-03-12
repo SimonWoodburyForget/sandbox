@@ -12,15 +12,15 @@ to see if it could be optimized at all, and if so by how much.
 
 There's one tiny allocation in `.concat()` which allocates a `String`
 allowing the string to be concatitated; I got rid of that with a
-little string slicing, which got me down to around ~16.5ns.
+little string slicing, which got me down to around ~17.5ns.
 
     fn is_necklace(a: &str, b: &str) -> bool {
-        let check = |rotation| {
+        let check = |(rotation, _)| {
             let a = (&a[rotation..], &a[..rotation]);
             let b = (&b[..a.0.len()], &b[a.0.len()..]);
             a == b
         };
 
-        let len = a.len();
-        len == b.len() && ((0..len).any(check) || len == 0)
+        a.len() == b.len() && (a.len() == 0 || a.char_indices().any(check))
     }
+

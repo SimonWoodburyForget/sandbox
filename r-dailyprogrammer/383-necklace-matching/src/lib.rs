@@ -1,11 +1,9 @@
 use std::collections::HashMap;
 
-const enable1: &str = ""; //include_str!("inputs/enable1.txt");
-
 /// Prints some data related to the input.
 fn analyze(input: &str) {
     println!("kilobytes {} (bytes {})", input.len() / 1000, input.len());
-    let words: Vec<&str> = enable1.trim().split("\n").collect();
+    let words: Vec<&str> = input.trim().split("\n").collect();
     println!("words {}", words.len());
 
     println!(
@@ -18,7 +16,7 @@ fn analyze(input: &str) {
     );
 
     let mut chars: HashMap<char, u32> = HashMap::new();
-    for c in enable1.chars().filter(|&c| c != '\n') {
+    for c in input.chars().filter(|&c| c != '\n') {
         let mut count = chars.entry(c).or_insert(0);
         *count += 1;
     }
@@ -27,28 +25,17 @@ fn analyze(input: &str) {
     println!("chars {:?}", chars);
 }
 
-/// Calculates a normalized starting index of a necklace.
-///
-/// - abcba < bcdaa
-/// - abcba > aabcb
-///
-fn normalize(a: &str) -> usize {
-    for c in a.chars() {}
-    1
-}
-
 pub mod slicer {
 
     #[inline(always)]
     pub fn is_necklace(a: &str, b: &str) -> bool {
-        let check = |rotation| {
+        let check = |(rotation, _)| {
             let a = (&a[rotation..], &a[..rotation]);
             let b = (&b[..a.0.len()], &b[a.0.len()..]);
             a == b
         };
 
-        let len = a.len();
-        len == b.len() && ((0..len).any(check) || len == 0)
+        a.len() == b.len() && (a.len() == 0 || a.char_indices().any(check))
     }
 
     #[test]
@@ -73,8 +60,6 @@ pub mod slicer {
 }
 
 pub mod simple {
-    use std::collections::VecDeque;
-
     #[inline(always)]
     pub fn is_necklace(a: &str, b: &str) -> bool {
         a.len() == b.len() && [a, a].concat().contains(b)
@@ -108,7 +93,7 @@ pub mod manual {
         } else if rhs.is_empty() {
             return true;
         }
-        'outer: for offset in 0..rhs.len() {
+        'outer: for (offset, _) in rhs.char_indices() {
             for (r, l) in rhs[offset..]
                 .chars()
                 .chain(rhs[..offset].chars())
