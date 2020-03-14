@@ -18,9 +18,7 @@ pub fn find_the_four_counters<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> 
     // find other solutions
     if let Some(solution_word) = solution {
         let mut solutions = Vec::with_capacity(4);
-        let rotation = Necklace::new(solution_word)
-            .rotate()
-            .take(solution_word.len() - 1);
+        let rotation = Necklace::new(solution_word).rotate();
         for word in rotation {
             let word = word.to_string();
             if let Ok(x) = words.binary_search(&word.as_str()) {
@@ -44,6 +42,7 @@ pub fn canonicalize_rotation(x: &str) -> usize {
         .len()
 }
 
+/// Represents the word with a rotation to it's canonical form.
 #[derive(Debug, Clone, Copy)]
 pub struct Necklace<'a> {
     word: &'a str,
@@ -58,11 +57,13 @@ impl<'a> Necklace<'a> {
         }
     }
 
+    /// Slices the word to it's canonical form.
     fn slices(&self) -> [&'a str; 2] {
         let Self { word, rotation } = self;
         [&word[*rotation..], &word[..*rotation]]
     }
 
+    /// Returns the rotation iterator.
     fn rotate(&self) -> Rotate<'a> {
         Rotate {
             necklace: *self,
@@ -72,6 +73,7 @@ impl<'a> Necklace<'a> {
 }
 
 impl Ord for Necklace<'_> {
+    /// Compares the laxial ordering of the canonical form to another.
     fn cmp(&self, other: &Self) -> Ordering {
         let [a, b] = self.slices();
         let x = a.chars().chain(b.chars());
@@ -89,6 +91,7 @@ impl PartialOrd for Necklace<'_> {
 
 impl Eq for Necklace<'_> {}
 impl PartialEq for Necklace<'_> {
+    /// Checks whether the other necklace is of the same canonical form.
     fn eq(&self, other: &Self) -> bool {
         match self.cmp(other) {
             Ordering::Equal => true,
@@ -98,6 +101,7 @@ impl PartialEq for Necklace<'_> {
 }
 
 impl Hash for Necklace<'_> {
+    /// Hashes the canonical form of the word.
     fn hash<H: Hasher>(&self, h: &mut H) {
         let [a, b] = self.slices();
         h.write(a.as_bytes());
@@ -106,12 +110,14 @@ impl Hash for Necklace<'_> {
 }
 
 impl ToString for Necklace<'_> {
+    /// Returns the canonical form as a string.
     fn to_string(&self) -> String {
         self.slices().concat()
     }
 }
 
-/// Necklace iterator.
+/// Iteratos through the rotated forms of a necklace, starting
+/// at the current rotation +1 and ending before the current rotation.
 struct Rotate<'a> {
     necklace: Necklace<'a>,
     rotation: usize,
@@ -122,7 +128,7 @@ impl<'a> Iterator for Rotate<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.rotation += 1;
-        if self.rotation <= self.necklace.word.len() {
+        if self.rotation <= self.necklace.word.len() - 1 {
             Some(Necklace {
                 word: self.necklace.word,
                 rotation: self.necklace.rotation + self.rotation,
@@ -220,7 +226,6 @@ pub fn order() {
         let mut x = Necklace { word: "abc", rotation: 0 }.rotate();
         assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 1 }));
         assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 2 }));
-        assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 3 }));
         assert_eq!(x.next(), None);
     }
 
