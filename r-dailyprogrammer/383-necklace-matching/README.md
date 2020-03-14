@@ -137,3 +137,58 @@ equality and hashing.
             .collect();
         println!("{:?}", slicer::find_the_four(&v));
     }
+
+----------------------------------
+
+*Solution 2*
+
+In order to import performance of my previous solution, I've decided
+to eleminate the vector allocations found in the lookup map, which
+I've benchmarked and calculated as taking about half of the entire
+runtime.
+
+We can start by only finding 1 solution, by simply making a
+hashmap of counters. This is vastly more efficient, but you lose the 3
+other words.
+
+The trick is to realize that `enable1.txt` isn't just a random word
+list, it's actually a sorted word list, which means you can use it to
+do binary search, which you can do by iterating over rotations of your
+one solution.
+
+This gets the runtime from ~70ms down to ~45ms.
+
+    pub fn find_the_four_counters<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
+        // find one solution
+        let mut counters = HashMap::with_capacity(words.len());
+        let mut solution = None;
+        for &word in words {
+            let counter = counters.entry(Necklace::new(word)).or_insert(0);
+            *counter += 1;
+            if *counter == 4 {
+                solution = Some(word);
+                break;
+            }
+        }
+    
+        // find other solutions
+        if let Some(solution_word) = solution {
+            let mut solutions = Vec::with_capacity(4);
+            let rotation = Necklace::new(solution_word)
+                .rotate()
+                .take(solution_word.len() - 1);
+            for word in rotation {
+                let word = word.to_string();
+                if let Ok(x) = words.binary_search(&word.as_str()) {
+                    solutions.push(words[x]);
+                }
+            }
+            solutions.push(solution_word);
+            solutions.sort();
+            Some(solutions)
+        } else {
+            None
+        }
+    }
+
+[*Complete Source*]()

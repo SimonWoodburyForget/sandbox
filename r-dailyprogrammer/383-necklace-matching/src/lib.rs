@@ -1,80 +1,47 @@
 use std::cmp::Ordering;
-use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
-use rayon::prelude::*;
-
-/// Prints some data related to the input.
-pub fn analyze(input: &str) {
-    println!("kilobytes {} (bytes {})", input.len() / 1000, input.len());
-    let words: Vec<&str> = input.trim().split("\n").collect();
-    println!("words {}", words.len());
-
-    println!(
-        "max word len {}",
-        words.iter().map(|w| w.len()).max().unwrap()
-    );
-    println!(
-        "avg word len {}",
-        words.iter().map(|w| w.len()).sum::<usize>() / words.len()
-    );
-    println!(
-        "min word len {}",
-        words.iter().map(|w| w.len()).min().unwrap()
-    );
-
-    let mut chars: HashMap<char, u32> = HashMap::new();
-    for c in input.chars().filter(|&c| c != '\n') {
-        let count = chars.entry(c).or_insert(0);
-        *count += 1;
+pub fn find_the_four_counters<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
+    // find one solution
+    let mut counters = HashMap::with_capacity(words.len());
+    let mut solution = None;
+    for &word in words {
+        let counter = counters.entry(Necklace::new(word)).or_insert(0);
+        *counter += 1;
+        if *counter == 4 {
+            solution = Some(word);
+            break;
+        }
     }
-    let mut chars = chars.into_iter().collect::<Vec<(char, u32)>>();
-    chars.sort();
-    println!("chars {:?}", chars);
-}
 
-#[inline(always)]
-pub fn canonicalize_hash(x: &str) -> u64 {
-    let [a, b] = x
-        .char_indices()
-        .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
-        .max()
-        .unwrap_or([x, ""]);
-
-    let mut h = DefaultHasher::new();
-    h.write(a.as_bytes());
-    h.write(b.as_bytes());
-    h.finish()
-}
-
-#[inline(always)]
-pub fn canonicalize_slices(x: &str) -> [&str; 2] {
-    x.char_indices()
-        .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
-        .max()
-        .unwrap_or([x, ""])
+    // find other solutions
+    if let Some(solution_word) = solution {
+        let mut solutions = Vec::with_capacity(4);
+        let rotation = Necklace::new(solution_word)
+            .rotate()
+            .take(solution_word.len() - 1);
+        for word in rotation {
+            let word = word.to_string();
+            if let Ok(x) = words.binary_search(&word.as_str()) {
+                solutions.push(words[x]);
+            }
+        }
+        solutions.push(solution_word);
+        solutions.sort();
+        Some(solutions)
+    } else {
+        None
+    }
 }
 
 /// Calculates rotation from canonicalized form.
-#[inline(always)]
 pub fn canonicalize_rotation(x: &str) -> usize {
     x.char_indices()
         .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
         .max()
         .unwrap_or([x, ""])[1]
         .len()
-}
-
-/// Checks if two strings are part of the same necklace.
-#[inline(always)]
-pub fn is_necklace(a: &str, b: &str) -> bool {
-    let check = |(rotation, _)| {
-        let a = (&a[rotation..], &a[..rotation]);
-        let b = (&b[..a.0.len()], &b[a.0.len()..]);
-        a == b
-    };
-    a.len() == b.len() && (a.len() == 0 || a.char_indices().any(check))
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -100,27 +67,6 @@ impl<'a> Necklace<'a> {
         Rotate {
             necklace: *self,
             rotation: 0,
-        }
-    }
-}
-
-struct Rotate<'a> {
-    necklace: Necklace<'a>,
-    rotation: usize,
-}
-
-impl<'a> Iterator for Rotate<'a> {
-    type Item = Necklace<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.rotation += 1;
-        if self.rotation <= self.necklace.word.len() {
-            Some(Necklace {
-                word: self.necklace.word,
-                rotation: self.necklace.rotation + self.rotation,
-            })
-        } else {
-            None
         }
     }
 }
@@ -165,6 +111,51 @@ impl ToString for Necklace<'_> {
     }
 }
 
+/// Necklace iterator.
+struct Rotate<'a> {
+    necklace: Necklace<'a>,
+    rotation: usize,
+}
+
+impl<'a> Iterator for Rotate<'a> {
+    type Item = Necklace<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.rotation += 1;
+        if self.rotation <= self.necklace.word.len() {
+            Some(Necklace {
+                word: self.necklace.word,
+                rotation: self.necklace.rotation + self.rotation,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+#[inline(always)]
+pub fn canonicalize_slices(x: &str) -> [&str; 2] {
+    x.char_indices()
+        .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
+        .max()
+        .unwrap_or([x, ""])
+}
+
+#[inline(always)]
+pub fn canonicalize_hash(x: &str) -> u64 {
+    use std::collections::hash_map::DefaultHasher;
+    let [a, b] = x
+        .char_indices()
+        .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
+        .max()
+        .unwrap_or([x, ""]);
+
+    let mut h = DefaultHasher::new();
+    h.write(a.as_bytes());
+    h.write(b.as_bytes());
+    h.finish()
+}
+
 #[inline(always)]
 pub fn find_the_four_slow<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
     let mut results = HashMap::with_capacity(words.len());
@@ -178,38 +169,44 @@ pub fn find_the_four_slow<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
     None
 }
 
+/// Checks if two strings are part of the same necklace.
 #[inline(always)]
-pub fn find_the_four_counters<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
-    // find one solution
-    let mut counters = HashMap::with_capacity(words.len());
-    let mut solution = None;
-    for &word in words {
-        let counter = counters.entry(Necklace::new(word)).or_insert(0);
-        *counter += 1;
-        if *counter == 4 {
-            solution = Some(word);
-            break;
-        }
-    }
+pub fn is_necklace(a: &str, b: &str) -> bool {
+    let check = |(rotation, _)| {
+        let a = (&a[rotation..], &a[..rotation]);
+        let b = (&b[..a.0.len()], &b[a.0.len()..]);
+        a == b
+    };
+    a.len() == b.len() && (a.len() == 0 || a.char_indices().any(check))
+}
 
-    // find other solutions
-    if let Some(solution_word) = solution {
-        let mut solutions = Vec::with_capacity(4);
-        let rotation = Necklace::new(solution_word)
-            .rotate()
-            .take(solution_word.len() - 1);
-        for word in rotation {
-            let word = word.to_string();
-            if let Ok(x) = words.binary_search(&word.as_str()) {
-                solutions.push(words[x]);
-            }
-        }
-        solutions.push(solution_word);
-        solutions.sort();
-        Some(solutions)
-    } else {
-        None
+/// Prints some data related to the input.
+pub fn analyze(input: &str) {
+    println!("kilobytes {} (bytes {})", input.len() / 1000, input.len());
+    let words: Vec<&str> = input.trim().split("\n").collect();
+    println!("words {}", words.len());
+
+    println!(
+        "max word len {}",
+        words.iter().map(|w| w.len()).max().unwrap()
+    );
+    println!(
+        "avg word len {}",
+        words.iter().map(|w| w.len()).sum::<usize>() / words.len()
+    );
+    println!(
+        "min word len {}",
+        words.iter().map(|w| w.len()).min().unwrap()
+    );
+
+    let mut chars: HashMap<char, u32> = HashMap::new();
+    for c in input.chars().filter(|&c| c != '\n') {
+        let count = chars.entry(c).or_insert(0);
+        *count += 1;
     }
+    let mut chars = chars.into_iter().collect::<Vec<(char, u32)>>();
+    chars.sort();
+    println!("chars {:?}", chars);
 }
 
 #[test]
