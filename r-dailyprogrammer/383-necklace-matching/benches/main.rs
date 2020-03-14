@@ -67,29 +67,33 @@ pub fn bench(c: &mut Criterion) {
     //     group.finish();
     // }
 
-    {
-        let mut group = c.benchmark_group("solution");
-        group.warm_up_time(Duration::new(3, 0));
-        group.sample_size(10);
-        group.measurement_time(Duration::new(20, 0));
+    let mut group = c.benchmark_group("solution");
+    group.warm_up_time(Duration::new(3, 0));
+    group.sample_size(10);
+    group.measurement_time(Duration::new(20, 0));
 
-        // group.bench_function("simple", |b| {
-        //     b.iter(|| {
-        //         simple::find_the_four(words.iter().cloned().collect());
-        //     })
-        //     // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
-        // });
+    // group.bench_function("simple", |b| {
+    //     b.iter(|| {
+    //         simple::find_the_four(words.iter().cloned().collect());
+    //     })
+    //     // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
+    // });
 
-        let mut data: Vec<&str> = words.iter().cloned().collect();
-        group.bench_function("faster", |b| {
-            b.iter(|| {
-                slicer::find_the_four(&data);
-            })
-            // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
-        });
+    let mut data: Vec<&str> = words.iter().cloned().collect();
+    group.bench_function("canon", |b| {
+        b.iter(|| {
+            find_the_four(&data);
+        })
+    });
 
-        group.finish();
-    }
+    let mut data: Vec<&str> = words.iter().cloned().collect();
+    group.bench_function("par", |b| {
+        b.iter(|| {
+            find_the_four_par(&data);
+        })
+    });
+
+    group.finish();
 }
 
 pub fn primitive(c: &mut Criterion) {
