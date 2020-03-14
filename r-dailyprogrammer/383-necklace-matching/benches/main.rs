@@ -10,90 +10,75 @@ use necklace_matching::*;
 
 const ENABLE1: &str = include_str!("../inputs/enable1.txt");
 
-pub fn bench(c: &mut Criterion) {
-    let words: Vec<&str> = ENABLE1.trim().split("\n").collect();
+pub fn words() -> Vec<&'static str> {
+    ENABLE1.trim().split("\n").collect()
+}
+
+pub fn bench_is_necklace(c: &mut Criterion) {
+    let words = words();
     let mut data = words.windows(2).cycle();
-
-    // let mut group = c.benchmark_group("is_necklace");
-    // group.warm_up_time(Duration::new(2, 0));
-    // group.sample_size(3_000);
-    // group.measurement_time(Duration::new(40, 0));
-
-    // let mut rng = rand::thread_rng();
-    // group.bench_function("simple", |b| {
-    //     b.iter(|| {
-    //         let ab = data.next().unwrap();
-    //         simple::is_necklace(ab[0], ab[1])
-    //     })
-    //     // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
-    // });
-    // group.bench_function("manual", |b| {
-    //     b.iter(|| {
-    //         let ab = data.next().unwrap();
-    //         manual::is_necklace(ab[0], ab[1])
-    //     })
-    // });
-    // group.bench_function("slicer", |b| {
-    //     b.iter(|| {
-    //         let ab = data.next().unwrap();
-    //         slicer::is_necklace(ab[0], ab[1])
-    //     })
-    // });
-
-    // {
-    //     let mut group = c.benchmark_group("canon");
-    //     let mut data = words.iter().cycle();
-
-    //     group.warm_up_time(Duration::new(2, 0));
-    //     group.sample_size(3_000);
-    //     group.measurement_time(Duration::new(40, 0));
-
-    //     group.bench_function("string", |b| {
-    //         b.iter(|| {
-    //             let s = data.next().unwrap();
-    //             slicer::canonicalize(s)
-    //         })
-    //         // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
-    //     });
-
-    //     group.bench_function("hasher", |b| {
-    //         b.iter(|| {
-    //             let s = data.next().unwrap();
-    //             slicer::canonicalize_hash(s)
-    //         })
-    //         // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
-    //     });
-
-    //     group.finish();
-    // }
-
-    let mut group = c.benchmark_group("solution");
-    group.warm_up_time(Duration::new(3, 0));
-    group.sample_size(10);
-    group.measurement_time(Duration::new(20, 0));
-
-    // group.bench_function("simple", |b| {
-    //     b.iter(|| {
-    //         simple::find_the_four(words.iter().cloned().collect());
-    //     })
-    //     // b.iter(|| simple::is_necklace("abbbbb", "babbbb"))
-    // });
-
-    let mut data: Vec<&str> = words.iter().cloned().collect();
-    group.bench_function("canon", |b| {
+    let mut group = c.benchmark_group("is_necklace");
+    group.warm_up_time(Duration::new(5, 0));
+    group.measurement_time(Duration::new(25, 0));
+    group.bench_function("fast", |b| {
         b.iter(|| {
-            find_the_four(&data);
+            let ab = data.next().unwrap();
+            is_necklace(ab[0], ab[1])
         })
     });
-
-    let mut data: Vec<&str> = words.iter().cloned().collect();
-    group.bench_function("par", |b| {
-        b.iter(|| {
-            find_the_four_par(&data);
-        })
-    });
-
     group.finish();
+}
+
+pub fn bench_canonicalize(c: &mut Criterion) {
+    let words = words();
+    let mut data = words.iter().cycle();
+    let mut group = c.benchmark_group("canon");
+    group.warm_up_time(Duration::new(5, 0));
+    group.measurement_time(Duration::new(40, 0));
+    group.bench_function("string", |b| {
+        b.iter(|| {
+            let word = data.next().unwrap();
+            Necklace::new(word).to_string()
+        })
+    });
+    group.bench_function("rotation", |b| {
+        b.iter(|| {
+            let word = data.next().unwrap();
+            canonicalize_rotation(word).to_string()
+        })
+    });
+    group.bench_function("slices", |b| {
+        b.iter(|| {
+            let word = data.next().unwrap();
+            canonicalize_slices(word)
+        })
+    });
+    group.finish();
+}
+
+pub fn bench_solution(c: &mut Criterion) {
+    let words = words();
+    let mut data: Vec<&str> = words.iter().cloned().collect();
+    let mut group = c.benchmark_group("solution");
+    group.warm_up_time(Duration::new(10, 0));
+    group.measurement_time(Duration::new(60 * 12, 0));
+    group.bench_function("slow", |b| {
+        b.iter(|| {
+            find_the_four_slow(&data);
+        })
+    });
+    group.bench_function("fast", |b| {
+        b.iter(|| {
+            find_the_four_counters(&data);
+        })
+    });
+    group.finish();
+}
+
+pub fn bench_full(mut c: &mut Criterion) {
+    // bench_is_necklace(&mut c);
+    // bench_canonicalize(&mut c);
+    bench_solution(&mut c);
 }
 
 pub fn primitive(c: &mut Criterion) {
@@ -124,5 +109,5 @@ pub fn primitive(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench);
+criterion_group!(benches, bench_full);
 criterion_main!(benches);

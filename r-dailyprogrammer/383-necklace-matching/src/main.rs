@@ -7,5 +7,5 @@ fn main() {
         .trim()
         .split("\n")
         .collect();
-    println!("{:?}", find_the_four(&v));
+    println!("{:?}", find_the_four_counters(&v));
 }

@@ -8,6 +8,8 @@ license = "MPL"
 [dependencies]
 criterion = "0.3"
 rand = "0.7"
+dashmap = "3.7"
+rayon = "*"
 
 [[bench]]
 name = "main"

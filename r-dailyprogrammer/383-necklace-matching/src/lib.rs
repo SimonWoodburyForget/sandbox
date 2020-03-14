@@ -1,6 +1,9 @@
+use std::cmp::Ordering;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+
+use rayon::prelude::*;
 
 /// Prints some data related to the input.
 pub fn analyze(input: &str) {
@@ -29,34 +32,6 @@ pub fn analyze(input: &str) {
     let mut chars = chars.into_iter().collect::<Vec<(char, u32)>>();
     chars.sort();
     println!("chars {:?}", chars);
-
-    let mut edges: HashMap<Necklace, u8> = HashMap::new();
-    for word in words.iter() {
-        let r = edges.entry(Necklace(word)).or_insert(0);
-        *r += 1;
-    }
-    println!("max edges {}", edges.iter().map(|(_, e)| e).max().unwrap());
-    let mut edge_count = HashMap::new();
-    for (_, e) in edges {
-        let r = edge_count.entry(e).or_insert(0);
-        *r += 1;
-    }
-    println!("edges {:?}", edge_count);
-
-    let words = words.as_slice();
-    let mut edges = Vec::new();
-    let mut i: u64 = 0;
-    for (e, a) in words.iter().enumerate() {
-        for b in words[e..].iter() {
-            i += 1;
-            if Necklace(a) == Necklace(b) {
-                edges.push((a, b));
-            }
-        }
-    }
-
-    println!("duplicates {}", edges.len());
-    println!("checks {}", i);
 }
 
 #[inline(always)]
@@ -81,15 +56,17 @@ pub fn canonicalize_slices(x: &str) -> [&str; 2] {
         .unwrap_or([x, ""])
 }
 
+/// Calculates rotation from canonicalized form.
 #[inline(always)]
-pub fn canonicalize_string(x: &str) -> String {
+pub fn canonicalize_rotation(x: &str) -> usize {
     x.char_indices()
         .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
         .max()
-        .unwrap_or([x, ""])
-        .concat()
+        .unwrap_or([x, ""])[1]
+        .len()
 }
 
+/// Checks if two strings are part of the same necklace.
 #[inline(always)]
 pub fn is_necklace(a: &str, b: &str) -> bool {
     let check = |(rotation, _)| {
@@ -100,35 +77,83 @@ pub fn is_necklace(a: &str, b: &str) -> bool {
     a.len() == b.len() && (a.len() == 0 || a.char_indices().any(check))
 }
 
-#[inline(always)]
-pub fn is_necklace_simple(a: &str, b: &str) -> bool {
-    a.len() == b.len() && [a, a].concat().contains(b)
+#[derive(Debug, Clone, Copy)]
+pub struct Necklace<'a> {
+    word: &'a str,
+    rotation: usize,
 }
 
-#[derive(Debug)]
-pub struct Necklace<'a>(&'a str);
+impl<'a> Necklace<'a> {
+    pub fn new(word: &'a str) -> Self {
+        Self {
+            word,
+            rotation: canonicalize_rotation(word),
+        }
+    }
+
+    fn slices(&self) -> [&'a str; 2] {
+        let Self { word, rotation } = self;
+        [&word[*rotation..], &word[..*rotation]]
+    }
+
+    fn rotate(&self) -> Rotate<'a> {
+        Rotate {
+            necklace: *self,
+            rotation: 0,
+        }
+    }
+}
+
+struct Rotate<'a> {
+    necklace: Necklace<'a>,
+    rotation: usize,
+}
+
+impl<'a> Iterator for Rotate<'a> {
+    type Item = Necklace<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.rotation += 1;
+        if self.rotation <= self.necklace.word.len() {
+            Some(Necklace {
+                word: self.necklace.word,
+                rotation: self.necklace.rotation + self.rotation,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+impl Ord for Necklace<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let [a, b] = self.slices();
+        let x = a.chars().chain(b.chars());
+        let [a, b] = other.slices();
+        let y = a.chars().chain(b.chars());
+        x.cmp(y)
+    }
+}
+
+impl PartialOrd for Necklace<'_> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
 impl Eq for Necklace<'_> {}
 impl PartialEq for Necklace<'_> {
     fn eq(&self, other: &Self) -> bool {
-        let (a, b) = (self.0, other.0);
-        let check = |(rotation, _)| {
-            let a = (&a[rotation..], &a[..rotation]);
-            let b = (&b[..a.0.len()], &b[a.0.len()..]);
-            a == b
-        };
-        a.len() == b.len() && (a.len() == 0 || a.char_indices().any(check))
+        match self.cmp(other) {
+            Ordering::Equal => true,
+            _ => false,
+        }
     }
 }
 
 impl Hash for Necklace<'_> {
     fn hash<H: Hasher>(&self, h: &mut H) {
-        let x = self.0;
-        let [a, b] = x
-            .char_indices()
-            .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
-            .max()
-            .unwrap_or([x, ""]);
+        let [a, b] = self.slices();
         h.write(a.as_bytes());
         h.write(b.as_bytes());
     }
@@ -136,15 +161,15 @@ impl Hash for Necklace<'_> {
 
 impl ToString for Necklace<'_> {
     fn to_string(&self) -> String {
-        canonicalize_string(self.0)
+        self.slices().concat()
     }
 }
 
 #[inline(always)]
-pub fn find_the_four<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
+pub fn find_the_four_slow<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
     let mut results = HashMap::with_capacity(words.len());
     for &word in words {
-        let result = results.entry(Necklace(word)).or_insert(Vec::new());
+        let result = results.entry(Necklace::new(word)).or_insert(Vec::new());
         result.push(word);
         if result.len() == 4 {
             return Some(result.clone());
@@ -152,6 +177,55 @@ pub fn find_the_four<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
     }
     None
 }
+
+#[inline(always)]
+pub fn find_the_four_counters<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
+    // find one solution
+    let mut counters = HashMap::with_capacity(words.len());
+    let mut solution = None;
+    for &word in words {
+        let counter = counters.entry(Necklace::new(word)).or_insert(0);
+        *counter += 1;
+        if *counter == 4 {
+            solution = Some(word);
+            break;
+        }
+    }
+
+    // find other solutions
+    if let Some(solution_word) = solution {
+        let mut solutions = Vec::with_capacity(4);
+        let rotation = Necklace::new(solution_word)
+            .rotate()
+            .take(solution_word.len() - 1);
+        for word in rotation {
+            let word = word.to_string();
+            if let Ok(x) = words.binary_search(&word.as_str()) {
+                solutions.push(words[x]);
+            }
+        }
+        solutions.push(solution_word);
+        solutions.sort();
+        Some(solutions)
+    } else {
+        None
+    }
+}
+
+#[test]
+pub fn order() {
+    assert!(Necklace::new("ab") == Necklace::new("ba"));
+}
+
+#[test]
+    #[rustfmt::skip]
+    pub fn rotation() {
+        let mut x = Necklace { word: "abc", rotation: 0 }.rotate();
+        assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 1 }));
+        assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 2 }));
+        assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 3 }));
+        assert_eq!(x.next(), None);
+    }
 
 #[test]
 pub fn test() {
@@ -175,19 +249,19 @@ pub fn test() {
 
 #[test]
 pub fn test_eq() {
-    assert_eq!(Necklace("ab"), Necklace("ba"));
-    assert_eq!(Necklace("aabaaaaabaab"), Necklace("aabaabaabaaa"));
-    assert_eq!(Necklace("nicole"), Necklace("icolen"));
-    assert_eq!(Necklace("nicole"), Necklace("icolen"));
-    assert_eq!(Necklace("nicole"), Necklace("lenico"));
-    assert_eq!(Necklace("aabaaaaabaab"), Necklace("aabaabaabaaa"));
-    assert_eq!(Necklace("x"), Necklace("x"));
-    assert_eq!(Necklace(""), Necklace(""));
-    assert_ne!(Necklace("x"), Necklace("xx"));
-    assert_ne!(Necklace("x"), Necklace(""));
-    assert_ne!(Necklace("abc"), Necklace("cba"));
-    assert_ne!(Necklace("xxyyy"), Necklace("xxxyy"));
-    assert_ne!(Necklace("xyxxz"), Necklace("xxyxz"));
+    assert_eq!(Necklace::new("ab"), Necklace::new("ba"));
+    assert_eq!(Necklace::new("aabaaaaabaab"), Necklace::new("aabaabaabaaa"));
+    assert_eq!(Necklace::new("nicole"), Necklace::new("icolen"));
+    assert_eq!(Necklace::new("nicole"), Necklace::new("icolen"));
+    assert_eq!(Necklace::new("nicole"), Necklace::new("lenico"));
+    assert_eq!(Necklace::new("aabaaaaabaab"), Necklace::new("aabaabaabaaa"));
+    assert_eq!(Necklace::new("x"), Necklace::new("x"));
+    assert_eq!(Necklace::new(""), Necklace::new(""));
+    assert_ne!(Necklace::new("x"), Necklace::new("xx"));
+    assert_ne!(Necklace::new("x"), Necklace::new(""));
+    assert_ne!(Necklace::new("abc"), Necklace::new("cba"));
+    assert_ne!(Necklace::new("xxyyy"), Necklace::new("xxxyy"));
+    assert_ne!(Necklace::new("xyxxz"), Necklace::new("xxyxz"));
 }
 
 #[test]
@@ -196,6 +270,8 @@ pub fn test_solution() {
         .trim()
         .split("\n")
         .collect();
-    let result = find_the_four(&v);
-    assert_eq!(result, Some(vec!["estop", "pesto", "stope", "topes"]));
+    let mut result = find_the_four_counters(&v).unwrap();
+    // result.sort();
+
+    assert_eq!(result, vec!["estop", "pesto", "stope", "topes"]);
 }
