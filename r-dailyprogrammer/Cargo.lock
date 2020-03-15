@@ -522,6 +522,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "trivial"
+version = "0.1.0"
+
+[[package]]
 name = "unicode-width"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -630,6 +634,13 @@ dependencies = [
 name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "yahtzee"
+version = "0.1.0"
+dependencies = [
+ "criterion 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [metadata]
 "checksum ahash 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "0989268a37e128d4d7a8028f1c60099430113fdbc70419010601ce51a228e4fe"

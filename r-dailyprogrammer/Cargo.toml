@@ -1,4 +1,6 @@
 [workspace]
 members = [
-  "383-necklace-matching"
+    "383-necklace-matching",
+    "381-yahtzee-upper-section-scoring",
+    "trivial",
 ]

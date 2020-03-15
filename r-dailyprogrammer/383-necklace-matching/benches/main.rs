@@ -61,10 +61,11 @@ pub fn bench_solution(c: &mut Criterion) {
     let mut data: Vec<&str> = words.iter().cloned().collect();
     let mut group = c.benchmark_group("solution");
     group.warm_up_time(Duration::new(10, 0));
-    group.measurement_time(Duration::new(60 * 12, 0));
-    // group.bench_function("slow", |b| {
+    group.sample_size(30);
+    group.measurement_time(Duration::new(60 * 8, 0));
+    // group.bench_function("binary", |b| {
     //     b.iter(|| {
-    //         find_the_four_slow(&data);
+    //         find_the_four_binary(&data);
     //     })
     // });
     group.bench_function("fast", |b| {

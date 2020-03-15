@@ -7,6 +7,10 @@ pub fn find_the_four_counters<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> 
     let mut counters = HashMap::with_capacity(words.len());
     let mut solution = None;
     for &word in words {
+        // words smaller then 4 have no solution
+        if word.len() < 4 {
+            continue;
+        }
         let counter = counters.entry(Necklace::new(word)).or_insert(0);
         *counter += 1;
         if *counter == 4 {
@@ -25,12 +29,44 @@ pub fn find_the_four_counters<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> 
                 solutions.push(words[x]);
             }
         }
-        solutions.push(solution_word);
-        solutions.sort();
         Some(solutions)
     } else {
         None
     }
+}
+
+pub fn find_the_four_binary<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
+    let mut solutions = Vec::with_capacity(4);
+    let mut buffer = String::new();
+    for &wordi in words {
+        let mut solutions_left = wordi.len();
+        if solutions_left < 4 {
+            continue;
+        }
+
+        for wordy in Necklace::new(wordi).rotate() {
+            if solutions_left + solutions.len() < 4 {
+                break;
+            }
+
+            let [a, b] = wordy.slices();
+            buffer.push_str(a);
+            buffer.push_str(b);
+            if let Ok(x) = words.binary_search(&buffer.as_str()) {
+                solutions.push(words[x]);
+            }
+            buffer.clear();
+            solutions_left -= 1;
+        }
+
+        if solutions.len() == 4 {
+            return Some(solutions);
+        } else {
+            solutions.clear();
+        }
+    }
+
+    None
 }
 
 /// Calculates rotation from canonicalized form.
@@ -128,10 +164,10 @@ impl<'a> Iterator for Rotate<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.rotation += 1;
-        if self.rotation <= self.necklace.word.len() - 1 {
+        if self.rotation <= self.necklace.word.len() {
             Some(Necklace {
                 word: self.necklace.word,
-                rotation: self.necklace.rotation + self.rotation,
+                rotation: (self.necklace.rotation + self.rotation) % self.necklace.word.len(),
             })
         } else {
             None
@@ -226,6 +262,7 @@ pub fn order() {
         let mut x = Necklace { word: "abc", rotation: 0 }.rotate();
         assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 1 }));
         assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 2 }));
+        assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 0 }));
         assert_eq!(x.next(), None);
     }
 
@@ -273,7 +310,7 @@ pub fn test_solution() {
         .split("\n")
         .collect();
     let mut result = find_the_four_counters(&v).unwrap();
-    // result.sort();
+    result.sort();
 
     assert_eq!(result, vec!["estop", "pesto", "stope", "topes"]);
 }
