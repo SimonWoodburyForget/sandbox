@@ -35,18 +35,18 @@ pub fn bench_canonicalize(c: &mut Criterion) {
     let mut group = c.benchmark_group("canon");
     group.warm_up_time(Duration::new(5, 0));
     group.measurement_time(Duration::new(40, 0));
-    group.bench_function("string", |b| {
-        b.iter(|| {
-            let word = data.next().unwrap();
-            Necklace::new(word).to_string()
-        })
-    });
-    group.bench_function("rotation", |b| {
-        b.iter(|| {
-            let word = data.next().unwrap();
-            canonicalize_rotation(word).to_string()
-        })
-    });
+    // group.bench_function("string", |b| {
+    //     b.iter(|| {
+    //         let word = data.next().unwrap();
+    //         Necklace::new(word).to_string()
+    //     })
+    // });
+    // group.bench_function("rotation", |b| {
+    //     b.iter(|| {
+    //         let word = data.next().unwrap();
+    //         canonicalize_rotation(word).to_string()
+    //     })
+    // });
     group.bench_function("slices", |b| {
         b.iter(|| {
             let word = data.next().unwrap();
@@ -62,11 +62,11 @@ pub fn bench_solution(c: &mut Criterion) {
     let mut group = c.benchmark_group("solution");
     group.warm_up_time(Duration::new(10, 0));
     group.measurement_time(Duration::new(60 * 12, 0));
-    group.bench_function("slow", |b| {
-        b.iter(|| {
-            find_the_four_slow(&data);
-        })
-    });
+    // group.bench_function("slow", |b| {
+    //     b.iter(|| {
+    //         find_the_four_slow(&data);
+    //     })
+    // });
     group.bench_function("fast", |b| {
         b.iter(|| {
             find_the_four_counters(&data);

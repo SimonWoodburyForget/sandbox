@@ -142,24 +142,39 @@ equality and hashing.
 
 *Solution 2*
 
-In order to import performance of my previous solution, I've decided
-to eleminate the vector allocations found in the lookup map, which
-I've benchmarked and calculated as taking about half of the entire
-runtime.
+I've managed to improve performance of my [previous
+solution](https://www.reddit.com/r/dailyprogrammer/comments/ffxabb/20200309_challenge_383_easy_necklace_matching/fkbwpxx/)
+after a bit of benchmarking, I've calculated vector allocation as
+taking up nearly half of the entire runtime, majority of which where
+server no purpose, doing nothing else then holding onto a single
+word. 
 
-We can start by only finding 1 solution, by simply making a
-hashmap of counters. This is vastly more efficient, but you lose the 3
-other words.
+My optimization was to replace these vectors with counters, such that
+I could find 1 solution vastly more efficiently, but obviously then
+you lose the other 3 words you'll need, and sorting the vector isn't
+actually faster.
 
-The trick is to realize that `enable1.txt` isn't just a random word
-list, it's actually a sorted word list, which means you can use it to
-do binary search, which you can do by iterating over rotations of your
-one solution.
+The trick is to realize that the `enable1.txt` dataset isn't just a
+random word list, it's actually a sorted word list, which makes it
+possible to do a binary search, from the rotations of the 1
+solution.
 
-This gets the runtime from ~70ms down to ~45ms.
+This cuts the runtime from ~70ms down to ~42ms.
+
+    use std::cmp::Ordering;
+    use std::collections::HashMap;
+    use std::hash::{Hash, Hasher};
+
+    fn main() {
+        let v: Vec<&str> = include_str!("../inputs/enable1.txt")
+            .trim()
+            .split("\n")
+            .collect();
+        println!("{:?}", find_the_four_counters(&v));
+    }
 
     pub fn find_the_four_counters<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
-        // find one solution
+        // find one solution with hashmap of counters
         let mut counters = HashMap::with_capacity(words.len());
         let mut solution = None;
         for &word in words {
@@ -170,8 +185,8 @@ This gets the runtime from ~70ms down to ~45ms.
                 break;
             }
         }
-    
-        // find other solutions
+
+        // find other solutions with binary search of rotations
         if let Some(solution_word) = solution {
             let mut solutions = Vec::with_capacity(4);
             let rotation = Necklace::new(solution_word)
@@ -191,4 +206,99 @@ This gets the runtime from ~70ms down to ~45ms.
         }
     }
 
-[*Complete Source*]()
+    /// Calculates rotation from canonicalized form.
+    pub fn canonicalize_rotation(x: &str) -> usize {
+        x.char_indices()
+            .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
+            .max()
+            .unwrap_or([x, ""])[1]
+            .len()
+    }
+
+    #[derive(Debug, Clone, Copy)]
+    pub struct Necklace<'a> {
+        word: &'a str,
+        rotation: usize,
+    }
+
+    impl<'a> Necklace<'a> {
+        pub fn new(word: &'a str) -> Self {
+            Self {
+                word,
+                rotation: canonicalize_rotation(word),
+            }
+        }
+
+        fn slices(&self) -> [&'a str; 2] {
+            let Self { word, rotation } = self;
+            [&word[*rotation..], &word[..*rotation]]
+        }
+
+        fn rotate(&self) -> Rotate<'a> {
+            Rotate {
+                necklace: *self,
+                rotation: 0,
+            }
+        }
+    }
+
+    struct Rotate<'a> {
+        necklace: Necklace<'a>,
+        rotation: usize,
+    }
+
+    impl<'a> Iterator for Rotate<'a> {
+        type Item = Necklace<'a>;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.rotation += 1;
+            if self.rotation <= self.necklace.word.len() {
+                Some(Necklace {
+                    word: self.necklace.word,
+                    rotation: self.necklace.rotation + self.rotation,
+                })
+            } else {
+                None
+            }
+        }
+    }
+
+    impl Ord for Necklace<'_> {
+        fn cmp(&self, other: &Self) -> Ordering {
+            let [a, b] = self.slices();
+            let x = a.chars().chain(b.chars());
+            let [a, b] = other.slices();
+            let y = a.chars().chain(b.chars());
+            x.cmp(y)
+        }
+    }
+
+    impl PartialOrd for Necklace<'_> {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            Some(self.cmp(other))
+        }
+    }
+
+    impl Eq for Necklace<'_> {}
+    impl PartialEq for Necklace<'_> {
+        fn eq(&self, other: &Self) -> bool {
+            match self.cmp(other) {
+                Ordering::Equal => true,
+                _ => false,
+            }
+        }
+    }
+
+    impl Hash for Necklace<'_> {
+        fn hash<H: Hasher>(&self, h: &mut H) {
+            let [a, b] = self.slices();
+            h.write(a.as_bytes());
+            h.write(b.as_bytes());
+        }
+    }
+
+    impl ToString for Necklace<'_> {
+        fn to_string(&self) -> String {
+            self.slices().concat()
+        }
+    }
