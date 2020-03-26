@@ -5,9 +5,14 @@ authors = ["Simon <simonwoodburyforget@gmail.com>"]
 edition = "2018"
 license = "MPL"
 
-# [dependencies]
-# criterion = "0.3"
+[dependencies]
+criterion = "0.3"
+chrono = "0.4"
 
-# [[bench]]
-# name = "main"
-# harness = false
+[dependencies.the_algorithms_rust]
+git = "https://github.com/TheAlgorithms/Rust"
+version = "0.1.0"
+
+[[bench]]
+name = "main"
+harness = false

@@ -1,37 +1,44 @@
-// use criterion::*;
-// use std::time::*;
+use criterion::*;
+use std::time::*;
+use trivial::sorting::*;
+use trivial::*;
 
-// fn input() -> Vec<u32> {
-//     include_str!("../inputs/yahtzee-upper-1.txt")
-//         .trim()
-//         .split("\n")
-//         .map(|x| x.parse().unwrap())
-//         .collect()
-// }
+mod gens {
+    //! Module which implements some sequence generators.
 
-// fn small_bench(c: &mut Criterion) {
-//     c.bench_function("hashmap", |b| b.iter(|| yahtzee_hashmap(&[6, 6, 1, 6, 6])));
-//     c.bench_function("array", |b| b.iter(|| yahtzee_small([3, 6, 1, 6, 6])));
-//     c.bench_function("vector", |b| b.iter(|| yahtzee_vec(&[3, 6, 1, 6, 6])));
-// }
+    use rand::prelude::*;
 
-// fn bench(c: &mut Criterion) {
-//     let input = input();
-//     let mut g = c.benchmark_group("100_000");
-//     g.measurement_time(Duration::new(60 * 2, 0));
-//     g.bench_function("vector", |b| b.iter(|| yahtzee_vec(&input)));
-//     g.bench_function("hashmap", |b| b.iter(|| yahtzee_hashmap(&input)));
-//     g.bench_function("btree", |b| b.iter(|| yahtzee_btree(&input)));
-// }
+    fn ones(size: usize) -> Vec<u32> {
+        vec![1; size]
+    }
+    
+    fn sorted_range(max: u32) -> Vec<u32> {
+        (0..max).rev().collect()
+    }
+    
+    fn reversed_range(max: u32) -> Vec<u32> {
+        (0..max).rev().collect()
+    }
 
-// fn bench_half(c: &mut Criterion) {
-//     let input = &input()[..50_000];
-//     let mut g = c.benchmark_group("50_000");
-//     g.measurement_time(Duration::new(60, 0));
-//     g.bench_function("vector", |b| b.iter(|| yahtzee_vec(input)));
-//     g.bench_function("hashmap", |b| b.iter(|| yahtzee_hashmap(input)));
-//     g.bench_function("btree", |b| b.iter(|| yahtzee_btree(input)));
-// }
+    fn shuffled_range(max: u32) -> Vec<u32> {
+        let mut v = (0..max).collect();
+        v.shuffle(&mut rand::thread_rng());
+        v
+    }
+}
+
+fn sort_bench(c: &mut Criterion) {
+    let mut g = c.benchmark_group("sort-ones");
+    g.measurement_time(Duration::new(60, 0));
+    g.bench_function("built-in", |b| b.iter(
+}
+
+fn fizzbuzz_bench(c: &mut Criterion) {
+    let mut g = c.benchmark_group("fizzbuzz");
+    g.measurement_time(Duration::new(60, 0));
+    g.bench_function("fold-write", |b| b.iter(|| fizzbuzz_folder_write()));
+    g.bench_function("fold-to-string", |b| b.iter(|| fizzbuzz_folder_to_string()));
+}
 
 // fn bench_with_io(c: &mut Criterion) {
 //     let input = include_str!("../inputs/yahtzee-upper-1.txt");
@@ -41,5 +48,5 @@
 //     // g.bench_function("decode", |b| b.iter(|| yahtzee_decode(input)));
 // }
 
-// criterion_group!(benches, bench_with_io);
-// criterion_main!(benches);
+criterion_group!(benches, fizzbuzz_bench);
+criterion_main!(benches);
