@@ -77,9 +77,9 @@ pub fn bench_solution(c: &mut Criterion) {
 }
 
 pub fn bench_full(mut c: &mut Criterion) {
-    // bench_is_necklace(&mut c);
+    bench_is_necklace(&mut c);
     // bench_canonicalize(&mut c);
-    bench_solution(&mut c);
+    // bench_solution(&mut c);
 }
 
 pub fn primitive(c: &mut Criterion) {

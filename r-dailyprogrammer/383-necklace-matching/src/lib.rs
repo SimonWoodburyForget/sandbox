@@ -35,46 +35,19 @@ pub fn find_the_four_counters<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> 
     }
 }
 
-pub fn find_the_four_binary<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
-    let mut solutions = Vec::with_capacity(4);
-    let mut buffer = String::new();
-    for &wordi in words {
-        let mut solutions_left = wordi.len();
-        if solutions_left < 4 {
-            continue;
-        }
-
-        for wordy in Necklace::new(wordi).rotate() {
-            if solutions_left + solutions.len() < 4 {
-                break;
-            }
-
-            let [a, b] = wordy.slices();
-            buffer.push_str(a);
-            buffer.push_str(b);
-            if let Ok(x) = words.binary_search(&buffer.as_str()) {
-                solutions.push(words[x]);
-            }
-            buffer.clear();
-            solutions_left -= 1;
-        }
-
-        if solutions.len() == 4 {
-            return Some(solutions);
-        } else {
-            solutions.clear();
-        }
-    }
-
-    None
+type Slices<'a> = (&'a str, &'a str);
+#[inline(always)]
+fn flip((a, b): Slices<'_>) -> Slices<'_> {
+    (b, a)
 }
 
 /// Calculates rotation from canonicalized form.
 pub fn canonicalize_rotation(x: &str) -> usize {
     x.char_indices()
-        .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
+        .map(|(rotation, _)| flip(x.split_at(rotation)))
         .max()
-        .unwrap_or([x, ""])[1]
+        .unwrap_or((x, ""))
+        .1
         .len()
 }
 
@@ -94,28 +67,39 @@ impl<'a> Necklace<'a> {
     }
 
     /// Slices the word to it's canonical form.
-    fn slices(&self) -> [&'a str; 2] {
+    fn slices(&self) -> Slices<'a> {
         let Self { word, rotation } = self;
-        [&word[*rotation..], &word[..*rotation]]
+        flip(word.split_at(*rotation))
     }
 
-    /// Returns the rotation iterator.
-    fn rotate(&self) -> Rotate<'a> {
-        Rotate {
-            necklace: *self,
-            rotation: 0,
-        }
+    /// Iterates slices with respect to canonical rotation.
+    fn iter_slices(&self) -> impl Iterator<Item = char> + 'a {
+        let (a, b) = self.slices();
+        a.chars().chain(b.chars())
+    }
+
+    /// Returns the rotation iterator. -- Iterates through the rotated forms of a necklace,
+    /// starting at the current rotation +1 and ending before the current rotation.
+    fn rotate(&self) -> impl Iterator<Item = Necklace<'a>> {
+        let word = self.word;
+        let init_rotation = self.rotation;
+        let mut rotation = 0;
+        std::iter::from_fn(move || {
+            rotation += 1;
+            if rotation <= word.len() {
+                let rotation = (rotation + init_rotation) % word.len();
+                Some(Necklace { word, rotation })
+            } else {
+                None
+            }
+        })
     }
 }
 
 impl Ord for Necklace<'_> {
     /// Compares the laxial ordering of the canonical form to another.
     fn cmp(&self, other: &Self) -> Ordering {
-        let [a, b] = self.slices();
-        let x = a.chars().chain(b.chars());
-        let [a, b] = other.slices();
-        let y = a.chars().chain(b.chars());
-        x.cmp(y)
+        self.iter_slices().cmp(other.iter_slices())
     }
 }
 
@@ -129,17 +113,14 @@ impl Eq for Necklace<'_> {}
 impl PartialEq for Necklace<'_> {
     /// Checks whether the other necklace is of the same canonical form.
     fn eq(&self, other: &Self) -> bool {
-        match self.cmp(other) {
-            Ordering::Equal => true,
-            _ => false,
-        }
+        matches!(self.cmp(other), Ordering::Equal)
     }
 }
 
 impl Hash for Necklace<'_> {
     /// Hashes the canonical form of the word.
     fn hash<H: Hasher>(&self, h: &mut H) {
-        let [a, b] = self.slices();
+        let (a, b) = self.slices();
         h.write(a.as_bytes());
         h.write(b.as_bytes());
     }
@@ -148,77 +129,14 @@ impl Hash for Necklace<'_> {
 impl ToString for Necklace<'_> {
     /// Returns the canonical form as a string.
     fn to_string(&self) -> String {
-        self.slices().concat()
+        self.iter_slices().collect()
     }
-}
-
-/// Iteratos through the rotated forms of a necklace, starting
-/// at the current rotation +1 and ending before the current rotation.
-struct Rotate<'a> {
-    necklace: Necklace<'a>,
-    rotation: usize,
-}
-
-impl<'a> Iterator for Rotate<'a> {
-    type Item = Necklace<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.rotation += 1;
-        if self.rotation <= self.necklace.word.len() {
-            Some(Necklace {
-                word: self.necklace.word,
-                rotation: (self.necklace.rotation + self.rotation) % self.necklace.word.len(),
-            })
-        } else {
-            None
-        }
-    }
-}
-
-#[inline(always)]
-pub fn canonicalize_slices(x: &str) -> [&str; 2] {
-    x.char_indices()
-        .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
-        .max()
-        .unwrap_or([x, ""])
-}
-
-#[inline(always)]
-pub fn canonicalize_hash(x: &str) -> u64 {
-    use std::collections::hash_map::DefaultHasher;
-    let [a, b] = x
-        .char_indices()
-        .map(|(rotation, _)| [&x[rotation..], &x[..rotation]])
-        .max()
-        .unwrap_or([x, ""]);
-
-    let mut h = DefaultHasher::new();
-    h.write(a.as_bytes());
-    h.write(b.as_bytes());
-    h.finish()
-}
-
-#[inline(always)]
-pub fn find_the_four_slow<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
-    let mut results = HashMap::with_capacity(words.len());
-    for &word in words {
-        let result = results.entry(Necklace::new(word)).or_insert(Vec::new());
-        result.push(word);
-        if result.len() == 4 {
-            return Some(result.clone());
-        }
-    }
-    None
 }
 
 /// Checks if two strings are part of the same necklace.
 #[inline(always)]
 pub fn is_necklace(a: &str, b: &str) -> bool {
-    let check = |(rotation, _)| {
-        let a = (&a[rotation..], &a[..rotation]);
-        let b = (&b[..a.0.len()], &b[a.0.len()..]);
-        a == b
-    };
+    let check = |(rotation, _)| b.split_at(a.len() - rotation) == flip(a.split_at(rotation));
     a.len() == b.len() && (a.len() == 0 || a.char_indices().any(check))
 }
 
