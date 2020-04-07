@@ -2,5 +2,6 @@
 members = [
     "383-necklace-matching",
     "381-yahtzee-upper-section-scoring",
+    "380-morse-code",
     "trivial",
 ]

@@ -175,14 +175,20 @@ pub fn order() {
 }
 
 #[test]
-    #[rustfmt::skip]
-    pub fn rotation() {
-        let mut x = Necklace { word: "abc", rotation: 0 }.rotate();
-        assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 1 }));
-        assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 2 }));
-        assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 0 }));
-        assert_eq!(x.next(), None);
-    }
+#[rustfmt::skip]
+pub fn rotation() {
+    let mut x = Necklace { word: "abc", rotation: 0 }.rotate();
+    assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 1 }));
+    assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 2 }));
+    assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 0 }));
+    assert_eq!(x.next(), None);
+    
+    let mut x = Necklace { word: "abc", rotation: 1 }.rotate();
+    assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 2 }));
+    assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 0 }));
+    assert_eq!(x.next(), Some(Necklace { word: "abc", rotation: 1 }));
+    assert_eq!(x.next(), None);
+}
 
 #[test]
 pub fn test() {
