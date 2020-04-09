@@ -5,13 +5,13 @@ const ENABLE_1: &str = include_str!("enable1.txt");
 pub mod bonus {
     use super::*;
 
-    pub fn one() -> Morse {
+    pub fn one() -> Morse<Code> {
         use std::collections::HashMap;
-        let mut map: HashMap<Morse, u8> = HashMap::default();
+        let mut map: HashMap<Morse<Code>, u8> = HashMap::default();
         let mut result = None;
         let words = ENABLE_1.trim().split("\n");
         for x in words {
-            let m: Morse = AlphaStr(x).into();
+            let m: Morse<Code> = AlphaStr(x).into();
             let counter = map.entry(m).or_default();
             *counter += 1;
             if *counter == 13 {
@@ -24,7 +24,7 @@ pub mod bonus {
         result.unwrap()
     }
 
-    pub fn two() -> Morse {
+    pub fn two() -> Morse<Code> {
         let a = Morse::from(MorseStr("---------------"));
         let words = ENABLE_1.trim().split("\n");
         let mut result = None;
@@ -55,7 +55,7 @@ pub mod bonus {
         results
     }
 
-    pub fn four() -> Morse {
+    pub fn four() -> Morse<Code> {
         let words = ENABLE_1.trim().split("\n");
         for w in words {
             if w.len() == 13 {
@@ -93,35 +93,33 @@ pub mod bonus {
 
 pub use inner::*;
 mod inner {
+    pub type Code = u128;
 
     /// Bit encoded morse code, each dot-or-dash is encoded as a 1 (dot) or 0 (dash),
     /// with the lenght of said sequence, which is done to make it as small as possible.
-    #[derive(Debug, PartialEq, Default, Hash, Copy, Clone)]
-    pub struct Morse {
+    #[derive(Debug, Default, Copy, Clone, Hash, PartialEq, Eq)]
+    pub struct Morse<T> {
         pub len: u8,
-        pub val: u128,
+        pub val: T,
     }
 
-    impl Eq for Morse {}
-
-    impl Morse {
-        fn unchecked_push(&mut self, code: Morse) {
-            self.len += code.len;
-            self.val <<= code.len;
-            self.val ^= code.val;
+    impl Morse<Code> {
+        pub const fn max_len() -> u8 {
+            std::mem::size_of::<Code>() as u8 * 8
         }
 
         /// Push another morse on top of this one, like a letter.
-        pub fn push(&mut self, code: Morse) {
-            self.unchecked_push(code);
-            assert!(self.len <= 128);
+        pub fn push(&mut self, code: Self) {
+            self.len += code.len;
+            self.val <<= code.len;
+            self.val |= code.val;
         }
 
         /// Push one bit onto the Morse code.
         pub fn push_bit(&mut self, bit: bool) {
-            self.unchecked_push(Self {
+            self.push(Self {
                 len: 1,
-                val: bit as _,
+                val: bit as Code,
             })
         }
 
@@ -132,7 +130,7 @@ mod inner {
             }
             for rot in 0..(self.len - other.len + 1) {
                 let a = self.val >> rot;
-                let z = 128 - other.len as u32;
+                let z = Self::max_len() as u32 - other.len as u32;
                 let a = a << z;
                 let a = a >> z;
                 if a == other.val {
@@ -144,26 +142,39 @@ mod inner {
 
         /// Checks if zeros and ones are even.
         pub fn balanced(&self) -> bool {
-            self.val.count_zeros() - (128 - self.len as u32) == self.val.count_ones()
+            self.val.count_zeros() - (Self::max_len() as u32 - self.len as u32)
+                == self.val.count_ones()
         }
 
         /// Reverses the bits within the morse code.
         pub fn reversed(self) -> Self {
-            let val = self.val << 128 - self.len as u32;
+            let val = self.val << Self::max_len() as u32 - self.len as u32;
             let val = val.reverse_bits();
             Self { val, len: self.len }
         }
     }
 
-    // impl std::fmt::Display for Point {
-    //     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    //         write!(f, "({}, {})", self.x, self.y)
-    //     }
-    // }
+    impl std::fmt::Display for Morse<Code> {
+        /// Displaying mores code is done with bit shifting, keep in mind that a binary number
+        /// such as `0b1110` would actually produce sequence `"-..."`.
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            // NOTE: `b' '` could really be anything else.
+            let mut buffer = [b' '; Self::max_len() as usize];
+            println!("{:010b}", self.val);
+            for x in 0..self.len {
+                let one = self.val >> (self.len - 1 - x) & 1;
+                buffer[x as usize] = if one == 1 { b'.' } else { b'-' };
+            }
+            write!(f, "{}", unsafe {
+                // SAFETY: Safe because we only encode valid utf8 characters.
+                std::str::from_utf8_unchecked(&buffer[0..self.len as usize])
+            })
+        }
+    }
 
     /// From string with only `'a'..='z'`.
     pub struct AlphaStr<'a>(pub &'a str);
-    impl From<AlphaStr<'_>> for Morse {
+    impl From<AlphaStr<'_>> for Morse<Code> {
         fn from(AlphaStr(letters): AlphaStr) -> Self {
             Morse::from(letters.as_bytes())
         }
@@ -171,7 +182,7 @@ mod inner {
 
     /// From string with only `-` and `.`.
     pub struct MorseStr<'a>(pub &'a str);
-    impl From<MorseStr<'_>> for Morse {
+    impl From<MorseStr<'_>> for Morse<Code> {
         fn from(MorseStr(morses): MorseStr) -> Self {
             let mut m = Self::default();
             for morse in morses.bytes() {
@@ -181,7 +192,7 @@ mod inner {
         }
     }
 
-    impl From<&[u8]> for Morse {
+    impl From<&[u8]> for Morse<Code> {
         fn from(letters: &[u8]) -> Self {
             let mut m = Self::default();
             for &letter in letters {
@@ -191,14 +202,14 @@ mod inner {
         }
     }
 
-    impl From<(u8, u8)> for Morse {
+    impl From<(u8, u8)> for Morse<Code> {
         fn from((len, val): (u8, u8)) -> Self {
             let val = val as _;
             Self { val, len }
         }
     }
 
-    impl From<u8> for Morse {
+    impl From<u8> for Morse<Code> {
         /// Converts lower case letter range into `Morse` code.
         fn from(letter: u8) -> Self {
             CODES[(letter - b'a') as usize].into()
@@ -242,8 +253,8 @@ mod tests {
     #[test]
     fn from_codes() {
         let idx_test = |letter: u8, idx: usize| {
-            let letter: Morse = letter.into();
-            let code: Morse = CODES[idx].into();
+            let letter: Morse<Code> = letter.into();
+            let code: Morse<Code> = CODES[idx].into();
             assert_eq!(letter, code);
         };
 
@@ -298,7 +309,7 @@ mod tests {
     #[test]
     fn morse_map() {
         use std::collections::HashMap;
-        let mut map: HashMap<Morse, u8> = HashMap::default();
+        let mut map: HashMap<Morse<Code>, u8> = HashMap::default();
         let ambig = ["needing", "nervate", "niding", "tiling"];
         for &x in ambig.iter() {
             *map.entry(AlphaStr(x).into()).or_default() += 1;
@@ -337,6 +348,25 @@ mod tests {
 
         rev(".-", "-.");
         rev("-.-", "-.-");
+    }
+
+    #[test]
+    fn encoding() {
+        assert_eq!(Morse { len: 1, val: 0b1 }.to_string(), ".");
+        assert_eq!(Morse { len: 2, val: 0b01 }.to_string(), "-.");
+        assert_eq!(Morse { len: 2, val: 0b11 }.to_string(), "..");
+        assert_eq!(Morse { len: 2, val: 0b01 }.to_string(), "-.");
+        assert_eq!(Morse { len: 3, val: 0b101 }.to_string(), ".-.");
+        assert_eq!(Morse { len: 3, val: 0b010 }.to_string(), "-.-");
+        assert_eq!(Morse::from(MorseStr(".")).to_string(), ".");
+        assert_eq!(Morse::from(MorseStr(".-.-")).to_string(), ".-.-");
+        assert_eq!(Morse::from(MorseStr("----")).to_string(), "----");
+        assert_eq!(Morse::from(MorseStr("....")).to_string(), "....");
+        assert_eq!(Morse::from(AlphaStr("a")).to_string(), ".-");
+        assert_eq!(
+            Morse::from(AlphaStr("programmer")).to_string(),
+            ".--..-.-----..-..-----..-."
+        );
     }
 
     #[test]
