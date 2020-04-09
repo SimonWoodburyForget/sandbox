@@ -93,21 +93,60 @@ pub mod bonus {
 
 pub use inner::*;
 mod inner {
+    use std::ops::*;
+
     pub type Code = u128;
+
+    pub trait Codes:
+        BitOrAssign
+        + ShlAssign<u8>
+        + From<bool>
+        + Shl<u8, Output = Self>
+        + Shr<u8, Output = Self>
+        + Eq
+        + Copy
+        + Sized
+    {
+        fn count_zeros(self) -> u32;
+        fn count_ones(self) -> u32;
+        fn reverse_bits(self) -> Self;
+    }
+
+    macro_rules! impl_codes {
+        ( $($ty:ty),* ) => {
+            $(
+                impl Codes for $ty {
+                    fn count_zeros(self) -> u32 {
+                        self.count_zeros()
+                    }
+
+                    fn count_ones(self) -> u32 {
+                        self.count_ones()
+                    }
+
+                    fn reverse_bits(self) -> Self {
+                        self.reverse_bits()
+                    }
+                }
+            )*
+        };
+    }
+
+    impl_codes!(u128, u64, u32, u16, u8);
+
+    const fn max_len<T: Sized>() -> u8 {
+        std::mem::size_of::<T>() as u8 * 8
+    }
 
     /// Bit encoded morse code, each dot-or-dash is encoded as a 1 (dot) or 0 (dash),
     /// with the lenght of said sequence, which is done to make it as small as possible.
     #[derive(Debug, Default, Copy, Clone, Hash, PartialEq, Eq)]
-    pub struct Morse<T> {
+    pub struct Morse<T: Codes> {
         pub len: u8,
         pub val: T,
     }
 
-    impl Morse<Code> {
-        pub const fn max_len() -> u8 {
-            std::mem::size_of::<Code>() as u8 * 8
-        }
-
+    impl<T: Codes> Morse<T> {
         /// Push another morse on top of this one, like a letter.
         pub fn push(&mut self, code: Self) {
             self.len += code.len;
@@ -119,10 +158,12 @@ mod inner {
         pub fn push_bit(&mut self, bit: bool) {
             self.push(Self {
                 len: 1,
-                val: bit as Code,
+                val: bit.into(),
             })
         }
+    }
 
+    impl<T: Codes> Morse<T> {
         /// Checks if `Morse` contains another `Morse`.
         pub fn contains(&self, other: Self) -> bool {
             if self.len < other.len {
@@ -130,7 +171,7 @@ mod inner {
             }
             for rot in 0..(self.len - other.len + 1) {
                 let a = self.val >> rot;
-                let z = Self::max_len() as u32 - other.len as u32;
+                let z = max_len::<T>() - other.len;
                 let a = a << z;
                 let a = a >> z;
                 if a == other.val {
@@ -139,16 +180,18 @@ mod inner {
             }
             false
         }
+    }
 
+    impl<T: Codes> Morse<T> {
         /// Checks if zeros and ones are even.
         pub fn balanced(&self) -> bool {
-            self.val.count_zeros() - (Self::max_len() as u32 - self.len as u32)
+            self.val.count_zeros() - (max_len::<Code>() as u32 - self.len as u32)
                 == self.val.count_ones()
         }
 
         /// Reverses the bits within the morse code.
         pub fn reversed(self) -> Self {
-            let val = self.val << Self::max_len() as u32 - self.len as u32;
+            let val = self.val << max_len::<Code>() - self.len;
             let val = val.reverse_bits();
             Self { val, len: self.len }
         }
@@ -159,7 +202,7 @@ mod inner {
         /// such as `0b1110` would actually produce sequence `"-..."`.
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             // NOTE: `b' '` could really be anything else.
-            let mut buffer = [b' '; Self::max_len() as usize];
+            let mut buffer = [b' '; max_len::<Code>() as usize];
             println!("{:010b}", self.val);
             for x in 0..self.len {
                 let one = self.val >> (self.len - 1 - x) & 1;
