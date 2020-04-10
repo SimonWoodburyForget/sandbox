@@ -297,6 +297,8 @@ mod inner {
 pub mod codes {
     use super::{Code, Morse};
 
+    const MAX: usize = u8::max_value() as usize;
+
     /// Morse code iterator. Iterating morse code is a two step process, you need to go
     /// through all possible binary representation in all possible lenghts.
     ///
@@ -315,8 +317,68 @@ pub mod codes {
         })
     }
 
+    /// Iterates a range of morse codes, where `start` is inclusive and `end` is exclusive.
     pub fn range(start: Morse<Code>, end: Morse<Code>) -> impl Iterator<Item = Morse<Code>> {
         iter(start).take_while(move |&x| x != end)
+    }
+
+    use counter::Counter;
+    mod counter {
+        #[derive(Default, Copy, Clone)]
+        pub struct Counter<T> {
+            counter: usize,
+            pub value: T,
+        }
+
+        impl<T> Counter<T> {
+            pub fn incr(&mut self) {
+                self.counter += 1;
+            }
+        }
+
+        impl<T> Eq for Counter<T> {}
+        impl<T> PartialEq for Counter<T> {
+            fn eq(&self, other: &Self) -> bool {
+                self.counter == other.counter
+            }
+        }
+
+        impl<T> Ord for Counter<T> {
+            fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+                other.counter.cmp(&self.counter)
+            }
+        }
+
+        impl<T> PartialOrd for Counter<T> {
+            fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+                other.counter.partial_cmp(&self.counter)
+            }
+        }
+    }
+
+    /// Generates a byte mapping of morse codes for the input, where the most common
+    /// byte is mapped to the smallest morse code value.
+    pub fn gen(input: &[u8]) -> [Morse<Code>; MAX] {
+        let mut counters = [Counter::<usize>::default(); MAX];
+        for (e, counter) in counters.iter_mut().enumerate() {
+            counter.value = e;
+        }
+
+        for &byte in input {
+            counters[byte as usize].incr();
+        }
+
+        counters.sort();
+        let mut mapping = [Morse::<Code>::default(); MAX];
+        for (code, counter) in iter(Morse::default())
+            .take(MAX)
+            .skip(1)
+            .zip(counters.iter())
+        {
+            mapping[counter.value] = code;
+        }
+
+        mapping
     }
 }
 
@@ -465,6 +527,15 @@ mod tests {
             codes::range(Morse { len: 5, val: 0 }, Morse { len: 6, val: 0 }).map(|x| x.to_string());
         assert_eq!(it.next().unwrap(), "-----");
         assert_eq!(it.last().unwrap(), ".....");
+    }
+
+    #[test]
+    fn morse_gen() {
+        let mapping = codes::gen(b"aabc");
+        assert_eq!(mapping[b'a' as usize], Morse { len: 1, val: 0 });
+
+        let mapping = codes::gen(b"abcc");
+        assert_eq!(mapping[b'c' as usize], Morse { len: 1, val: 0 });
     }
 
     #[test]
