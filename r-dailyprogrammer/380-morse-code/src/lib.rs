@@ -1,6 +1,29 @@
 //! Daily programming challenge 380.
 
-const ENABLE_1: &str = include_str!("enable1.txt");
+pub mod inputs {
+    use super::{codes, Code, Morse};
+
+    pub const ENABLE_1: &str = include_str!("enable1.txt");
+
+    pub fn enable_1() -> impl Iterator<Item = &'static str> {
+        ENABLE_1.trim().split("\n")
+    }
+
+    pub mod mapping {
+        use super::*;
+
+        pub fn enable_1() -> [Morse<Code>; codes::MAX] {
+            codes::gen(ENABLE_1.bytes().filter(|x| (b'a'..=b'z').contains(x)))
+        }
+    }
+
+    pub fn print_mapping(mapping: [Morse<Code>; codes::MAX]) {
+        let letters = &mapping[(b'a' as usize)..=b'z' as usize];
+        for (e, x) in letters.iter().enumerate() {
+            println!("{} => {}", (e as u8 + b'a') as char, x);
+        }
+    }
+}
 
 pub mod bonus {
     use super::*;
@@ -8,17 +31,12 @@ pub mod bonus {
     pub fn one() -> Morse<Code> {
         use std::collections::HashMap;
         let mut map: HashMap<Morse<Code>, u8> = HashMap::default();
-        let mut result = None;
-        let words = ENABLE_1.trim().split("\n");
-        for x in words {
-            let m: Morse<Code> = AlphaStr(x).into();
-            let counter = map.entry(m).or_default();
+        let result = inputs::enable_1().find_map(|w| {
+            let x: Morse<Code> = AlphaStr(w).into();
+            let counter = map.entry(x).or_default();
             *counter += 1;
-            if *counter == 13 {
-                result = Some(m);
-                break;
-            }
-        }
+            Some(if *counter == 13 { x } else { return None })
+        });
         assert_eq!(result, Some(Morse::from(AlphaStr("tsadi"))));
         assert_eq!(result, Some(Morse::from(MorseStr("-....--...."))));
         result.unwrap()
@@ -26,46 +44,30 @@ pub mod bonus {
 
     pub fn two() -> Morse<Code> {
         let a = Morse::from(MorseStr("---------------"));
-        let words = ENABLE_1.trim().split("\n");
-        let mut result = None;
-        for x in words {
-            let x = Morse::from(AlphaStr(x));
-            if x.contains(a) {
-                result = Some(x);
-            }
-        }
-        result.unwrap()
+        inputs::enable_1()
+            .find_map(|w| {
+                let x = Morse::from(AlphaStr(w));
+                Some(if x.contains(a) { x } else { return None })
+            })
+            .unwrap()
     }
 
     pub fn three() -> Vec<&'static str> {
-        let words = ENABLE_1.trim().split("\n");
-        let mut results = Vec::new();
-        for w in words {
-            if w.len() == 21 {
-                let x = Morse::from(AlphaStr(w));
-                if x.balanced() {
-                    results.push(w);
-                    if results.len() == 2 {
-                        break;
-                    }
-                }
-            }
-        }
+        let results: Vec<_> = inputs::enable_1()
+            .filter(|w| w.len() == 21 && Morse::from(AlphaStr(w)).balanced())
+            .collect();
         assert_eq!(results.len(), 2);
         results
     }
 
     pub fn four() -> Morse<Code> {
-        let words = ENABLE_1.trim().split("\n");
-        for w in words {
-            if w.len() == 13 {
+        inputs::enable_1()
+            .filter(|w| w.len() == 13)
+            .find_map(|w| {
                 let x = Morse::from(AlphaStr(w));
-                if x == x.reversed() {
-                    return x;
-                }
-            }
-        }
-        panic!();
+                Some(if x == x.reversed() { x } else { return None })
+            })
+            .unwrap()
     }
 
     pub fn five() {
@@ -297,7 +299,7 @@ mod inner {
 pub mod codes {
     use super::{Code, Morse};
 
-    const MAX: usize = u8::max_value() as usize;
+    pub const MAX: usize = u8::max_value() as usize;
 
     /// Morse code iterator. Iterating morse code is a two step process, you need to go
     /// through all possible binary representation in all possible lenghts.
@@ -358,21 +360,20 @@ pub mod codes {
 
     /// Generates a byte mapping of morse codes for the input, where the most common
     /// byte is mapped to the smallest morse code value.
-    pub fn gen(input: &[u8]) -> [Morse<Code>; MAX] {
+    pub fn gen(input: impl Iterator<Item = u8>) -> [Morse<Code>; MAX] {
         let mut counters = [Counter::<usize>::default(); MAX];
         for (e, counter) in counters.iter_mut().enumerate() {
             counter.value = e;
         }
 
-        for &byte in input {
+        for byte in input {
             counters[byte as usize].incr();
         }
 
         counters.sort();
         let mut mapping = [Morse::<Code>::default(); MAX];
-        for (code, counter) in iter(Morse::default())
+        for (code, counter) in iter(Morse { len: 1, val: 0 })
             .take(MAX)
-            .skip(1)
             .zip(counters.iter())
         {
             mapping[counter.value] = code;
@@ -531,10 +532,10 @@ mod tests {
 
     #[test]
     fn morse_gen() {
-        let mapping = codes::gen(b"aabc");
+        let mapping = codes::gen("aabc".bytes());
         assert_eq!(mapping[b'a' as usize], Morse { len: 1, val: 0 });
 
-        let mapping = codes::gen(b"abcc");
+        let mapping = codes::gen("abcc".bytes());
         assert_eq!(mapping[b'c' as usize], Morse { len: 1, val: 0 });
     }
 
