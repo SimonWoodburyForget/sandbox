@@ -95,6 +95,8 @@ pub use inner::*;
 mod inner {
     use std::ops::*;
 
+    /// Default bit holder, `u128` was picked because there were
+    /// a few very long bit sequences.
     pub type Code = u128;
 
     pub trait Codes:
@@ -142,7 +144,10 @@ mod inner {
     /// with the lenght of said sequence, which is done to make it as small as possible.
     #[derive(Debug, Default, Copy, Clone, Hash, PartialEq, Eq)]
     pub struct Morse<T: Codes> {
+        /// Length of included bits in value.
         pub len: u8,
+
+        /// Morse code bits (u128, u64, u32, ...)
         pub val: T,
     }
 
@@ -203,7 +208,6 @@ mod inner {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             // NOTE: `b' '` could really be anything else.
             let mut buffer = [b' '; max_len::<Code>() as usize];
-            println!("{:010b}", self.val);
             for x in 0..self.len {
                 let one = self.val >> (self.len - 1 - x) & 1;
                 buffer[x as usize] = if one == 1 { b'.' } else { b'-' };
@@ -287,6 +291,33 @@ mod inner {
         (4, 0b0100), // y
         (4, 0b0011), // z
     ];
+}
+
+/// Morse code encoding generation.
+pub mod codes {
+    use super::{Code, Morse};
+
+    /// Morse code iterator. Iterating morse code is a two step process, you need to go
+    /// through all possible binary representation in all possible lenghts.
+    ///
+    /// NOTE: sequence order may not be exactly what you'd expect as a result of `--. == 100`
+    pub fn iter(Morse { mut val, mut len }: Morse<Code>) -> impl Iterator<Item = Morse<Code>> {
+        let mut result = None;
+        std::iter::from_fn(move || {
+            result = Some(Morse { val, len });
+            if val < (1 << len) - 1 {
+                val += 1;
+            } else {
+                len += 1;
+                val = 0;
+            }
+            result
+        })
+    }
+
+    pub fn range(start: Morse<Code>, end: Morse<Code>) -> impl Iterator<Item = Morse<Code>> {
+        iter(start).take_while(move |&x| x != end)
+    }
 }
 
 #[cfg(test)]
@@ -410,6 +441,30 @@ mod tests {
             Morse::from(AlphaStr("programmer")).to_string(),
             ".--..-.-----..-..-----..-."
         );
+    }
+
+    #[test]
+    fn morse_iter() {
+        assert_eq!(
+            codes::iter(Default::default())
+                .take(17)
+                .map(|x| x.to_string())
+                .collect::<Vec<String>>(),
+            vec![
+                "", "-", ".", "--", "-.", ".-", "..", "---", "--.", "-.-", "-..", ".--", ".-.",
+                "..-", "...", "----", "---."
+            ]
+        );
+        assert_eq!(
+            codes::range(MorseStr("---").into(), MorseStr("----").into())
+                .map(|x| x.to_string())
+                .collect::<Vec<String>>(),
+            vec!["---", "--.", "-.-", "-..", ".--", ".-.", "..-", "..."]
+        );
+        let mut it =
+            codes::range(Morse { len: 5, val: 0 }, Morse { len: 6, val: 0 }).map(|x| x.to_string());
+        assert_eq!(it.next().unwrap(), "-----");
+        assert_eq!(it.last().unwrap(), ".....");
     }
 
     #[test]
