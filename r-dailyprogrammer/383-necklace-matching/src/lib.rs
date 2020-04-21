@@ -2,6 +2,125 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
+#[cfg(test)]
+mod tests;
+
+use num_bigint::BigUint;
+// use num_integer::Integer;
+use num_traits::{
+    // cast::FromPrimitive,
+    Pow,
+    Zero,
+};
+use std::iter::Sum;
+
+// pub trait Count: Integer + FromPrimitive + Pow<u32, Output = Self> + Sum + Copy {}
+// impl Count for u128 {}
+
+/// represents a fixed range of primes
+pub struct Primes {
+    /// ordered vector of primes
+    numbers: Vec<usize>,
+
+    /// sieve of prime numbers
+    is_prime: Vec<bool>,
+
+    /// maximum number tested
+    n: usize,
+}
+
+impl Primes {
+    /// Computes primes within range to n.
+    pub fn sieve_erato(n: usize) -> Self {
+        let mut is_prime = vec![true; n];
+        // set 0, 1 to false
+        is_prime.iter_mut().take(2).for_each(|x| *x = false);
+
+        for i in 0..(n as f64).sqrt() as usize + 1 {
+            if is_prime[i] {
+                is_prime[i * i..n]
+                    .iter_mut()
+                    .step_by(i)
+                    .for_each(|is_p| *is_p = false)
+            }
+        }
+
+        let numbers = is_prime
+            .iter()
+            .enumerate()
+            .filter_map(|(p, &is_p)| if is_p { Some(p) } else { None })
+            .collect();
+
+        Primes {
+            numbers,
+            n,
+            is_prime,
+        }
+    }
+
+    /// Iterator of primes relativistic to `n`.
+    pub fn relative(&self, n: usize) -> impl Iterator<Item = &usize> {
+        debug_assert!(n < self.n);
+        // minor optimization for known primes; reduces average
+        // runtime by ~%10 on primes within range of `0..10_000`
+        if self.is_prime[n] {
+            let idx = self.numbers.binary_search(&n).unwrap();
+            &self.numbers[idx..idx + 1]
+        } else {
+            &self.numbers
+        }
+        .iter()
+        .take_while(move |&&p| p <= n)
+        .filter(move |&&p| n % p == 0)
+    }
+
+    /// Euler's totient function.
+    pub fn phi(&self, n: usize) -> usize {
+        let p1: usize = self.relative(n).map(|p| p - 1).product();
+        let p: usize = self.relative(n).product();
+        n * p1 / p
+    }
+
+    /// Return count of `k`-ary necklace of length `n` as `u128`.
+    pub fn necklaces(&self, k: usize, n: usize) -> u128 {
+        let k = k as u128;
+        let range = 1..(n as f64).sqrt() as usize + 1;
+        let nums = range.filter(|x| n % x == 0).map(|x| {
+            let (a, b) = (x, n / x);
+            let div_a = self.phi(a) as u128 * k.pow(b as u32);
+            let div_b = self.phi(b) as u128 * k.pow(a as u32);
+            (div_a + if a != b { div_b } else { 0 }) as u128
+        });
+        nums.sum::<u128>() / n as u128
+    }
+
+    /// Return count of `k`-ary necklace of length `n` as `BigUint`.
+    pub fn necklaces_big(&self, k: usize, n: usize) -> BigUint {
+        let k: BigUint = k.into();
+        let range = 1..(n as f64).sqrt() as usize + 1;
+        let nums = range.filter(|x| n % x == 0).map(|x| {
+            let (a, b) = (x, n / x);
+            let div_a = self.phi(a) * k.pow(b);
+            let div_b = self.phi(b) * k.pow(a);
+            div_a + if a != b { div_b } else { Zero::zero() }
+        });
+        nums.sum::<BigUint>() / n
+    }
+
+    // /// Return count of `k`-ary necklace of length `n` as `BigUint`.
+    // pub fn necklaces_generic<T: Count>(&self, k: usize, n: usize) -> T {
+    //     let k = T::from_usize(k).unwrap();
+    //     let range = 1..(n as f64).sqrt() as usize + 1;
+    //     let nums = range.filter(|x| n % x == 0).map(|x| {
+    //         let (a, b) = (x, n / x);
+    //         let div_a = T::from_usize(self.phi(a)).unwrap() * k.pow(b as u32);
+    //         let div_b = T::from_usize(self.phi(b)).unwrap() * k.pow(a as u32);
+    //         div_a + if a != b { div_b } else { Zero::zero() }
+    //     });
+    //     nums.sum::<T>() / T::from_usize(n).unwrap()
+    // }
+}
+
 pub fn find_the_four_counters<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
     // find one solution
     let mut counters = HashMap::with_capacity(words.len());

@@ -302,3 +302,124 @@ This cuts the runtime from ~70ms down to ~42ms.
             self.slices().concat()
         }
     }
+
+---------------------------------------------
+
+Solved in `Rust 1.42` (with optimization), topped with tests and
+benchmarks; By using the `u128` primitive it's possible to solve 3 of
+the large outputs given within ~1.1 microsecond, for the largest one
+`BigUint` is required, which solves within ~6.6 microsecond. (without
+prime factorization)
+
+```
+#[cfg(test)]
+mod tests;
+
+use num_bigint::BigUint;
+use num_traits::{Pow, Zero};
+
+/// represents a fixed range of primes
+pub struct Primes {
+    /// ordered vector of primes
+    numbers: Vec<usize>,
+
+    /// sieve of prime numbers
+    is_prime: Vec<bool>,
+
+    /// maximum number tested
+    n: usize,
+}
+
+impl Primes {
+    /// Computes primes within range to n (inclusive).
+    pub fn sieve_erato(n: usize) -> Self {
+        let mut is_prime = vec![true; n];
+        // set 0, 1 to false
+        is_prime.iter_mut().take(2).for_each(|x| *x = false);
+
+        for i in 0..(n as f64).sqrt() as usize + 1 {
+            if is_prime[i] {
+                is_prime[i * i..n]
+                    .iter_mut()
+                    .step_by(i)
+                    .for_each(|is_p| *is_p = false)
+            }
+        }
+
+        let numbers = is_prime
+            .iter()
+            .enumerate()
+            .filter_map(|(p, &is_p)| if is_p { Some(p) } else { None })
+            .collect();
+
+        Primes {
+            numbers,
+            n,
+            is_prime,
+        }
+    }
+
+    /// Iterator of primes relativistic to `n`.
+    pub fn relative(&self, n: usize) -> impl Iterator<Item = &usize> {
+        debug_assert!(n < self.n);
+        // minor optimization for known primes; reduces average 
+        // runtime by ~%10 on primes within range of `0..10_000`
+        if self.is_prime[n] {
+            let idx = self.numbers.binary_search(&n).unwrap();
+            &self.numbers[idx..idx + 1]
+        } else {
+            &self.numbers
+        }
+        .iter()
+        .take_while(move |&&p| p <= n)
+        .filter(move |&&p| n % p == 0)
+    }
+
+    /// Euler's totient function.
+    pub fn phi(&self, n: usize) -> usize {
+        let p1: usize = self.relative(n).map(|p| p - 1).product();
+        let p: usize = self.relative(n).product();
+        n * p1 / p
+    }
+
+    /// Return count of `k`-ary necklace of length `n` as `u128`.
+    pub fn necklaces(&self, k: usize, n: usize) -> u128 {
+        let k = k as u128;
+        let range = 1..(n as f64).sqrt() as usize + 1;
+        let nums = range.filter(|x| n % x == 0).map(|x| {
+            let (a, b) = (x, n / x);
+            let div_a = self.phi(a) as u128 * k.pow(b as u32);
+            let div_b = self.phi(b) as u128 * k.pow(a as u32);
+            (div_a + if a != b { div_b } else { 0 }) as u128
+        });
+        nums.sum::<u128>() / n as u128
+    }
+
+    /// Return count of `k`-ary necklace of length `n` as `BigUint`.
+    pub fn necklaces_big(&self, k: usize, n: usize) -> BigUint {
+        let k: BigUint = k.into();
+        let range = 1..(n as f64).sqrt() as usize + 1;
+        let nums = range.filter(|x| n % x == 0).map(|x| {
+            let (a, b) = (x, n / x);
+            let div_a = self.phi(a) * k.pow(b as u32);
+            let div_b = self.phi(b) * k.pow(a as u32);
+            div_a + if a != b { div_b } else { Zero::zero() }
+        });
+        nums.sum::<BigUint>() / n
+    }
+}
+```
+
+- 650ns `sieve_erato(100)`;
+- 4.0us `sieve_erato(1000)`;
+- 100ns `relative(n)`, where `n` is between `1..100`;
+- 220ns `phi(n)`, where `n` is between `1..100`;
+- 700ns `necklaces(1, n)`, where `n` is between `1..100`;
+- 5.2us `necklaces(1, n)`, where `n` is between `100..1000`; 
+- 106ns `necklaces(k, 1)`, where `k` is between `1..100`;
+- 106ns `necklaces(k, 1)`, where `k` is between `100..1000`;
+- 1.1us `necklaces(k, n)`, where `n` and `k` are between `1..100`;
+- 2.7us `necklaces_big(k, n)`, where `n` and `k` are between `1..100`;
+- 6.6us `necklaces_big(3, 90)`;
+- 1.1us `necklaces_big(123, 18)`;
+- 12.5us `necklaces_big(1024, 512)`;

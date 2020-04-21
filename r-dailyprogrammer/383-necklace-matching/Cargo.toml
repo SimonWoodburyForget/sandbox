@@ -1,5 +1,5 @@
 [package]
-name = "necklace-matching"
+name = "necklace_matching"
 version = "0.1.0"
 authors = ["Simon <simonwoodburyforget@gmail.com>"]
 edition = "2018"
@@ -8,8 +8,10 @@ license = "MPL"
 [dependencies]
 criterion = "0.3"
 rand = "0.7"
-dashmap = "3.7"
-rayon = "*"
+num = "0.2"
+num-bigint = "0.2.6"
+num-traits = "0.2.11"
+num-integer = "0.1"
 
 [[bench]]
 name = "main"
