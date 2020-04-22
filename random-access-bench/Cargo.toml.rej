@@ -1,0 +1,9 @@
+diff a/random-access-bench/Cargo.toml b/random-access-bench/Cargo.toml	(rejected hunks)
+@@ -7,6 +7,7 @@ edition = "2018"
+ [dependencies]
+ rayon = "1.3"
+ rand = "0.7"
++specs = "0.16"
+ 
+ [dev-dependencies]
+ criterion = "0.3"

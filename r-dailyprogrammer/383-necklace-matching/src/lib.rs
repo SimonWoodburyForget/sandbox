@@ -59,25 +59,26 @@ impl Primes {
     }
 
     /// Iterator of primes relativistic to `n`.
-    pub fn relative(&self, n: usize) -> impl Iterator<Item = &usize> {
+    pub fn relative(&self, n: usize) -> impl Iterator<Item = &usize> + Clone {
         debug_assert!(n < self.n);
         // minor optimization for known primes; reduces average
         // runtime by ~%10 on primes within range of `0..10_000`
-        if self.is_prime[n] {
-            let idx = self.numbers.binary_search(&n).unwrap();
-            &self.numbers[idx..idx + 1]
+        let start = if self.is_prime[n] {
+            self.numbers.binary_search(&n).unwrap()
         } else {
-            &self.numbers
-        }
-        .iter()
-        .take_while(move |&&p| p <= n)
-        .filter(move |&&p| n % p == 0)
+            0
+        };
+        self.numbers[start..]
+            .iter()
+            .take_while(move |&&p| p <= n)
+            .filter(move |&&p| n % p == 0)
     }
 
     /// Euler's totient function.
     pub fn phi(&self, n: usize) -> usize {
-        let p1: usize = self.relative(n).map(|p| p - 1).product();
-        let p: usize = self.relative(n).product();
+        let it = self.relative(n);
+        let p: usize = it.clone().product();
+        let p1: usize = it.map(|p| p - 1).product();
         n * p1 / p
     }
 
@@ -89,7 +90,7 @@ impl Primes {
             let (a, b) = (x, n / x);
             let div_a = self.phi(a) as u128 * k.pow(b as u32);
             let div_b = self.phi(b) as u128 * k.pow(a as u32);
-            (div_a + if a != b { div_b } else { 0 }) as u128
+            div_a + if a != b { div_b } else { 0 }
         });
         nums.sum::<u128>() / n as u128
     }
