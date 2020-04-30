@@ -12,16 +12,12 @@ use num_traits::{
     Pow,
     Zero,
 };
-use std::iter::Sum;
 
 // pub trait Count: Integer + FromPrimitive + Pow<u32, Output = Self> + Sum + Copy {}
 // impl Count for u128 {}
 
 /// represents a fixed range of primes
 pub struct Primes {
-    /// ordered vector of primes
-    numbers: Vec<usize>,
-
     /// sieve of prime numbers
     is_prime: Vec<bool>,
 
@@ -33,49 +29,34 @@ impl Primes {
     /// Computes primes within range to n.
     pub fn sieve_erato(n: usize) -> Self {
         let sqrt = (n as f64).sqrt() as usize;
-        let log2 = (n as f64).log2() as usize;
-
         let mut is_prime = vec![true; n];
-        let mut numbers = Vec::with_capacity(n / (log2 - 1));
         let mut range = 0..n;
 
         (&mut range).take(2).for_each(|i| is_prime[i] = false);
-
-        numbers.extend((&mut range).take(sqrt - 2).filter_map(|i| {
+        (&mut range).take(sqrt - 2).for_each(|i| {
             if is_prime[i] {
                 is_prime[i * i..n]
                     .iter_mut()
                     .step_by(i)
                     .for_each(|is_p| *is_p = false);
-                Some(i)
-            } else {
-                None
             }
-        }));
+        });
 
-        numbers.extend((&mut range).filter(|&i| is_prime[i]));
-
-        Primes {
-            numbers,
-            n,
-            is_prime,
-        }
+        Primes { n, is_prime }
     }
 
     /// Iterator of primes relativistic to `n`.
-    pub fn relative(&self, n: usize) -> impl Iterator<Item = &usize> + Clone {
+    pub fn relative(&self, n: usize) -> impl Iterator<Item = usize> + Clone + '_ {
         debug_assert!(n < self.n);
         // minor optimization for known primes; reduces average
         // runtime by ~%10 on primes within range of `0..10_000`
-        let start = if self.is_prime[n] {
-            self.numbers.binary_search(&n).unwrap()
-        } else {
-            0
-        };
-        self.numbers[start..]
+        let start = if self.is_prime[0] { n } else { 0 };
+        self.is_prime[start..]
             .iter()
-            .take_while(move |&&p| p <= n)
-            .filter(move |&&p| n % p == 0)
+            .enumerate()
+            .filter_map(|(e, &b)| if b { Some(e) } else { None })
+            .take_while(move |&p| p <= n)
+            .filter(move |&p| n % p == 0)
     }
 
     /// Euler's totient function.
