@@ -32,24 +32,28 @@ pub struct Primes {
 impl Primes {
     /// Computes primes within range to n.
     pub fn sieve_erato(n: usize) -> Self {
-        let mut is_prime = vec![true; n];
-        // set 0, 1 to false
-        is_prime.iter_mut().take(2).for_each(|x| *x = false);
+        let sqrt = (n as f64).sqrt() as usize;
+        let log2 = (n as f64).log2() as usize;
 
-        for i in 0..(n as f64).sqrt() as usize + 1 {
+        let mut is_prime = vec![true; n];
+        let mut numbers = Vec::with_capacity(n / (log2 - 1));
+        let mut range = 0..n;
+
+        (&mut range).take(2).for_each(|i| is_prime[i] = false);
+
+        numbers.extend((&mut range).take(sqrt - 2).filter_map(|i| {
             if is_prime[i] {
                 is_prime[i * i..n]
                     .iter_mut()
                     .step_by(i)
-                    .for_each(|is_p| *is_p = false)
+                    .for_each(|is_p| *is_p = false);
+                Some(i)
+            } else {
+                None
             }
-        }
+        }));
 
-        let numbers = is_prime
-            .iter()
-            .enumerate()
-            .filter_map(|(p, &is_p)| if is_p { Some(p) } else { None })
-            .collect();
+        numbers.extend((&mut range).filter(|&i| is_prime[i]));
 
         Primes {
             numbers,
