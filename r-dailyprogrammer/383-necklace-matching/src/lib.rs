@@ -30,6 +30,16 @@ pub fn sieve_erato(is_prime: &mut [bool]) -> impl Iterator<Item = usize> + '_ {
         .filter_map(|(e, b)| if *b { Some(e) } else { None })
 }
 
+/// Small outpus don't require many primes.
+const PRIMES: [usize; 54] = [
+    2, 3, 5, 7, 11, 13, 17, 19, 23, 29, // 10
+    31, 37, 41, 43, 47, 53, 59, 61, 67, 71, // 20
+    73, 79, 83, 89, 97, 101, 103, 107, 109, 113, // 30
+    127, 131, 137, 139, 149, 151, 157, 163, 167, 173, // 40
+    179, 181, 191, 193, 197, 199, 211, 223, 227, 229, // 50
+    233, 239, 241, 251,
+];
+
 /// Euler's totient function.
 pub fn phi(n: usize, primes: &[usize]) -> usize {
     let (p, p1) = match primes.binary_search(&n) {
@@ -46,16 +56,6 @@ pub fn phi(n: usize, primes: &[usize]) -> usize {
 
 /// Return count of `k`-ary necklace of length `n` as `u128`.
 pub fn necklaces(k: usize, n: usize) -> u128 {
-    /// Small outpus don't require many primes.
-    const PRIMES: [usize; 54] = [
-        2, 3, 5, 7, 11, 13, 17, 19, 23, 29, // 10
-        31, 37, 41, 43, 47, 53, 59, 61, 67, 71, // 20
-        73, 79, 83, 89, 97, 101, 103, 107, 109, 113, // 30
-        127, 131, 137, 139, 149, 151, 157, 163, 167, 173, // 40
-        179, 181, 191, 193, 197, 199, 211, 223, 227, 229, // 50
-        233, 239, 241, 251,
-    ];
-
     let sqrt = (n as f64).sqrt() as usize;
     let divs = |x| if (n % x == 0) { Some((x, n / x)) } else { None };
     (1..sqrt + 1)
