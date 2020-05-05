@@ -1,10 +1,10 @@
 use necklace_matching::*;
 
 fn main() {
-    let prime = Primes::sieve_erato(2500);
-    let count = prime.necklaces_big(1024, 512);
+    // let prime = sieve_erato(2500);
+    // let count = necklaces_big(1024, 512);
     // let count = prime.necklaces_big(1024, 1024 * 2);
-    println!("{}", count);
+    // println!("{}", count);
     // analyze(include_str!("../inputs/enable1.txt"));
 
     // let v: Vec<&str> = include_str!("../inputs/enable1.txt")

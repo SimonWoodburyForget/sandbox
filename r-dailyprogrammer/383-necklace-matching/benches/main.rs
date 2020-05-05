@@ -1,10 +1,10 @@
-use std::collections::hash_map::DefaultHasher;
-use std::collections::VecDeque;
-use std::hash::{Hash, Hasher};
+// use std::collections::hash_map::DefaultHasher;
+// use std::collections::VecDeque;
+// use std::hash::{Hash, Hasher};
 
 use criterion::*;
-use rand::seq::SliceRandom;
-use rand::Rng;
+// use rand::seq::SliceRandom;
+// use rand::Rng;
 use std::time::Duration;
 
 use necklace_matching::*;
@@ -111,70 +111,66 @@ use necklace_matching::*;
 //     group.finish();
 // }
 
-pub fn bench_necklaces(c: &mut Criterion) {
-    let mut group = c.benchmark_group("necklaces");
-    group
-        .warm_up_time(Duration::new(1, 0))
-        .sample_size(15)
-        .measurement_time(Duration::new(10, 0));
-
-    group.bench_function("sieve_erato-100", |b| b.iter(|| Primes::sieve_erato(100)));
-
-    group.bench_function("sieve_erato-1000", |b| b.iter(|| Primes::sieve_erato(1000)));
-
-    let primes = Primes::sieve_erato(1500);
+pub fn prime_inputs(max_prime: usize, pool_size: usize) -> (impl FnMut() -> usize, Vec<usize>) {
     let mut rng = rand::thread_rng();
-    let mut n: Vec<usize> = (1..100_000).map(|x| x % 99 + 1).collect();
-    n.shuffle(&mut rng);
-    let mut n = n.into_iter().cycle();
+    let mut is_prime = vec![true; max_prime];
+    let primes = sieve_erato(&mut is_prime).collect();
+    let start = max_prime - 10;
 
-    group.bench_function("relative", |b| {
-        b.iter(|| primes.relative(n.next().unwrap()).sum::<usize>())
+    let range = start..max_prime;
+    let mut pool = std::iter::repeat(range).flatten().cycle();
+    let next = move || pool.next().unwrap();
+
+    (next, primes)
+}
+
+fn bench_necklaces(c: &mut Criterion) {
+    let (mut next, primes) = prime_inputs(100, 100);
+
+    let mut group = c.benchmark_group("necklaces");
+
+    group.bench_function("necklaces-big-1024-10,000", |b| {
+        b.iter(|| necklaces_big(1024, 10_000))
     });
 
-    group.bench_function("phi", |b| b.iter(|| primes.phi(n.next().unwrap())));
-
-    group.bench_function("necklaces-n-100", |b| {
-        b.iter(|| primes.necklaces(1, n.next().unwrap()))
+    group.bench_function("sieve_erato-100", |b| {
+        b.iter(|| {
+            let mut is_prime = [true; 100];
+            sieve_erato(&mut is_prime).sum::<usize>()
+        })
     });
 
-    group.bench_function("necklaces-n-1000", |b| {
-        b.iter(|| primes.necklaces(1, n.next().unwrap() * 10))
+    group.bench_function("sieve_erato-1,000", |b| {
+        b.iter(|| {
+            let mut is_prime = [true; 1_000];
+            sieve_erato(&mut is_prime).sum::<usize>()
+        })
     });
 
-    let mut k: Vec<usize> = (1..100_000).map(|x| x % 99 + 1).collect();
-    k.shuffle(&mut rng);
-    let mut k = k.into_iter().cycle();
+    // group.bench_function("sieve_erato-10,000", |b| {
+    //     b.iter(|| Primes::sieve_erato(10_000))
+    // });
 
-    group.bench_function("necklaces-k-100", |b| {
-        b.iter(|| primes.necklaces(k.next().unwrap(), 1))
-    });
+    // group.bench_function("relative", |b| {
+    //     b.iter(|| primes.relative(n.next().unwrap()).sum::<usize>())
+    // });
 
-    group.bench_function("necklaces-k-1000", |b| {
-        b.iter(|| primes.necklaces(k.next().unwrap() * 10, 1))
-    });
+    group.bench_function("phi", |b| b.iter(|| phi(next(), &primes)));
 
-    group.bench_function("necklaces-k-n", |b| {
-        b.iter(|| primes.necklaces(k.next().unwrap(), n.next().unwrap()))
-    });
+    // group.bench_function("necklaces-k-n", |b| {
+    //     b.iter(|| primes.necklaces(n.next().unwrap(), n.next().unwrap()))
+    // });
 
-    group.bench_function("necklaces-big-k-n", |b| {
-        b.iter(|| primes.necklaces_big(k.next().unwrap(), n.next().unwrap()))
-    });
+    // group.bench_function("necklaces-big-k-n", |b| {
+    //     b.iter(|| primes.necklaces_big(n.next().unwrap(), n.next().unwrap()))
+    // });
 
-    group.bench_function("necklaces-big-3-90", |b| {
-        b.iter(|| primes.necklaces_big(3, 90))
-    });
+    group.bench_function("necklaces-big-3-90", |b| b.iter(|| necklaces_big(3, 90)));
 
-    group.bench_function("necklaces-123-18", |b| b.iter(|| primes.necklaces(123, 18)));
-
-    group
-        .warm_up_time(Duration::new(10, 0))
-        .sample_size(15)
-        .measurement_time(Duration::new(100, 0));
+    group.bench_function("necklaces-123-18", |b| b.iter(|| necklaces(123, 18)));
 
     group.bench_function("necklaces-big-1024-512", |b| {
-        b.iter(|| primes.necklaces_big(1024, 512))
+        b.iter(|| necklaces_big(1024, 512))
     });
 }
 

@@ -1,3 +1,6 @@
+#![allow(unused_parens)]
+#![allow(unstable_name_collisions)]
+
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -6,105 +9,80 @@ use std::hash::{Hash, Hasher};
 mod tests;
 
 use num_bigint::BigUint;
-// use num_integer::Integer;
-use num_traits::{
-    // cast::FromPrimitive,
-    Pow,
-    Zero,
-};
+use num_traits::{Pow, Zero};
+use rayon::prelude::*;
 
-// pub trait Count: Integer + FromPrimitive + Pow<u32, Output = Self> + Sum + Copy {}
-// impl Count for u128 {}
-
-/// represents a fixed range of primes
-pub struct Primes {
-    /// sieve of prime numbers
-    is_prime: Vec<bool>,
-
-    /// maximum number tested
-    n: usize,
+/// Computes primes within range to n.
+pub fn sieve_erato(is_prime: &mut [bool]) -> impl Iterator<Item = usize> + '_ {
+    const START: usize = 2;
+    let n = is_prime.len() + 1;
+    let sqrt = (n as f64).sqrt() as usize;
+    is_prime.iter_mut().take(START).for_each(|x| *x = false);
+    for i in START..sqrt + 1 {
+        let mut it = is_prime[i..].iter_mut().step_by(i);
+        if it.next().copied().unwrap_or(false) {
+            it.for_each(|x| *x = false);
+        }
+    }
+    is_prime
+        .into_iter()
+        .enumerate()
+        .filter_map(|(e, b)| if *b { Some(e) } else { None })
 }
 
-impl Primes {
-    /// Computes primes within range to n.
-    pub fn sieve_erato(n: usize) -> Self {
-        let sqrt = (n as f64).sqrt() as usize;
-        let mut is_prime = vec![true; n];
-        let mut range = 0..n;
-
-        (&mut range).take(2).for_each(|i| is_prime[i] = false);
-        (&mut range).take(sqrt - 2).for_each(|i| {
-            if is_prime[i] {
-                is_prime[i * i..n]
-                    .iter_mut()
-                    .step_by(i)
-                    .for_each(|is_p| *is_p = false);
-            }
-        });
-
-        Primes { n, is_prime }
-    }
-
-    /// Iterator of primes relativistic to `n`.
-    pub fn relative(&self, n: usize) -> impl Iterator<Item = usize> + Clone + '_ {
-        debug_assert!(n < self.n);
-        // minor optimization for known primes; reduces average
-        // runtime by ~%10 on primes within range of `0..10_000`
-        let start = if self.is_prime[0] { n } else { 0 };
-        self.is_prime[start..]
+/// Euler's totient function.
+pub fn phi(n: usize, primes: &[usize]) -> usize {
+    let (p, p1) = match primes.binary_search(&n) {
+        Err(idx) => primes[0..idx]
             .iter()
-            .enumerate()
-            .filter_map(|(e, &b)| if b { Some(e) } else { None })
-            .take_while(move |&p| p <= n)
-            .filter(move |&p| n % p == 0)
-    }
+            .copied()
+            .filter(move |p| n % p == 0)
+            .map(|x| (x, x - 1))
+            .fold((1, 1), |a, b| (a.0 * b.0, a.1 * b.1)),
+        Ok(_) => (n, n - 1),
+    };
+    n * p1 / p
+}
 
-    /// Euler's totient function.
-    pub fn phi(&self, n: usize) -> usize {
-        let it = self.relative(n);
-        let p: usize = it.clone().product();
-        let p1: usize = it.map(|p| p - 1).product();
-        n * p1 / p
-    }
+/// Return count of `k`-ary necklace of length `n` as `u128`.
+pub fn necklaces(k: usize, n: usize) -> u128 {
+    /// Small outpus don't require many primes.
+    const PRIMES: [usize; 54] = [
+        2, 3, 5, 7, 11, 13, 17, 19, 23, 29, // 10
+        31, 37, 41, 43, 47, 53, 59, 61, 67, 71, // 20
+        73, 79, 83, 89, 97, 101, 103, 107, 109, 113, // 30
+        127, 131, 137, 139, 149, 151, 157, 163, 167, 173, // 40
+        179, 181, 191, 193, 197, 199, 211, 223, 227, 229, // 50
+        233, 239, 241, 251,
+    ];
 
-    /// Return count of `k`-ary necklace of length `n` as `u128`.
-    pub fn necklaces(&self, k: usize, n: usize) -> u128 {
-        let k = k as u128;
-        let range = 1..(n as f64).sqrt() as usize + 1;
-        let nums = range.filter(|x| n % x == 0).map(|x| {
-            let (a, b) = (x, n / x);
-            let div_a = self.phi(a) as u128 * k.pow(b as u32);
-            let div_b = self.phi(b) as u128 * k.pow(a as u32);
-            div_a + if a != b { div_b } else { 0 }
-        });
-        nums.sum::<u128>() / n as u128
-    }
+    let sqrt = (n as f64).sqrt() as usize;
+    let divs = |x| if (n % x == 0) { Some((x, n / x)) } else { None };
+    (1..sqrt + 1)
+        .filter_map(divs)
+        .map(|(x, y)| {
+            let div = |a, b| phi(a, &PRIMES) as u128 * (k as u128).pow(b as u32);
+            div(x, y) + if x != y { div(y, x) } else { 0 }
+        })
+        .sum::<u128>()
+        / n as u128
+}
 
-    /// Return count of `k`-ary necklace of length `n` as `BigUint`.
-    pub fn necklaces_big(&self, k: usize, n: usize) -> BigUint {
-        let k: BigUint = k.into();
-        let range = 1..(n as f64).sqrt() as usize + 1;
-        let nums = range.filter(|x| n % x == 0).map(|x| {
-            let (a, b) = (x, n / x);
-            let div_a = self.phi(a) * k.pow(b);
-            let div_b = self.phi(b) * k.pow(a);
-            div_a + if a != b { div_b } else { Zero::zero() }
-        });
-        nums.sum::<BigUint>() / n
-    }
-
-    // /// Return count of `k`-ary necklace of length `n` as `BigUint`.
-    // pub fn necklaces_generic<T: Count>(&self, k: usize, n: usize) -> T {
-    //     let k = T::from_usize(k).unwrap();
-    //     let range = 1..(n as f64).sqrt() as usize + 1;
-    //     let nums = range.filter(|x| n % x == 0).map(|x| {
-    //         let (a, b) = (x, n / x);
-    //         let div_a = T::from_usize(self.phi(a)).unwrap() * k.pow(b as u32);
-    //         let div_b = T::from_usize(self.phi(b)).unwrap() * k.pow(a as u32);
-    //         div_a + if a != b { div_b } else { Zero::zero() }
-    //     });
-    //     nums.sum::<T>() / T::from_usize(n).unwrap()
-    // }
+/// Return count of `k`-ary necklace of length `n` as `BigUint`.
+pub fn necklaces_big(k: usize, n: usize) -> BigUint {
+    let k: BigUint = k.into();
+    let mut is_prime: Vec<bool> = vec![true; n + 1];
+    let primes: Vec<usize> = sieve_erato(&mut is_prime[..]).collect();
+    let sqrt = (n as f64).sqrt() as usize;
+    let divs = |x| if (n % x == 0) { Some((x, n / x)) } else { None };
+    (1..sqrt + 1)
+        .filter_map(divs)
+        .map(|(x, y)| {
+            let div = |a, b| phi(a, &primes) * k.pow(b as u32);
+            div(x, y) + if x != y { div(y, x) } else { Zero::zero() }
+        })
+        .sum::<BigUint>()
+        / n
 }
 
 pub fn find_the_four_counters<'a>(words: &'a [&'a str]) -> Option<Vec<&'a str>> {
